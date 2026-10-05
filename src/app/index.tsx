@@ -1,98 +1,240 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  Text,
+  Pressable,
+  SafeAreaView,
+  Platform,
+} from 'react-native';
+import { ProfileHeader } from '@/components/dashboard/profile-header';
+import { QuickModes } from '@/components/dashboard/quick-modes';
+import { StatsOverview } from '@/components/dashboard/stats-overview';
+import { ChessBoard } from '@/components/chess/chess-board';
+import { GameControls } from '@/components/chess/game-controls';
+import { useGameStore } from '@/store/gamestore';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+export default function DashboardScreen() {
+  const [activeTab, setActiveTab] = useState<'board' | 'modes' | 'stats'>('board');
+  const { mode } = useGameStore();
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Top Header */}
+        <View style={styles.topHeader}>
+          <View style={styles.brandRow}>
+            <Text style={styles.brandLogo}>♟️</Text>
+            <View>
+              <Text style={styles.brandName}>CHESS MASTER</Text>
+              <Text style={styles.brandTagline}>Grandmaster Arena</Text>
+            </View>
+          </View>
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+          <View style={styles.onlinePill}>
+            <View style={styles.liveDot} />
+            <Text style={styles.onlineText}>1,420 Players</Text>
+          </View>
+        </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        {/* Profile Card Banner */}
+        <ProfileHeader />
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        {/* Navigation Switcher Tabs */}
+        <View style={styles.tabNavContainer}>
+          <Pressable
+            style={[styles.tabNavBtn, activeTab === 'board' && styles.tabNavBtnActive]}
+            onPress={() => setActiveTab('board')}
+          >
+            <Text style={styles.tabNavIcon}>♟️</Text>
+            <Text
+              style={[styles.tabNavText, activeTab === 'board' && styles.tabNavTextActive]}
+            >
+              Play Board
+            </Text>
+          </Pressable>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+          <Pressable
+            style={[styles.tabNavBtn, activeTab === 'modes' && styles.tabNavBtnActive]}
+            onPress={() => setActiveTab('modes')}
+          >
+            <Text style={styles.tabNavIcon}>⚡</Text>
+            <Text
+              style={[styles.tabNavText, activeTab === 'modes' && styles.tabNavTextActive]}
+            >
+              Game Modes
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.tabNavBtn, activeTab === 'stats' && styles.tabNavBtnActive]}
+            onPress={() => setActiveTab('stats')}
+          >
+            <Text style={styles.tabNavIcon}>📊</Text>
+            <Text
+              style={[styles.tabNavText, activeTab === 'stats' && styles.tabNavTextActive]}
+            >
+              History
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Tab Content 1: Live Play Board */}
+        {activeTab === 'board' && (
+          <View style={styles.boardSection}>
+            <View style={styles.modeBadgeContainer}>
+              <Text style={styles.modeBadgeText}>
+                CURRENT MODE:{' '}
+                {mode === 'vsAI'
+                  ? '🤖 VS BOT AI'
+                  : mode === 'passAndPlay'
+                  ? '👥 PASS & PLAY (2 PLAYERS)'
+                  : mode === 'blitz'
+                  ? '⚡ SPEED BLITZ'
+                  : '🧩 PUZZLE SOLVER'}
+              </Text>
+            </View>
+
+            <ChessBoard />
+            <GameControls />
+          </View>
+        )}
+
+        {/* Tab Content 2: Quick Modes */}
+        {activeTab === 'modes' && (
+          <QuickModes onSelectPlayTab={() => setActiveTab('board')} />
+        )}
+
+        {/* Tab Content 3: Stats & History */}
+        {activeTab === 'stats' && <StatsOverview />}
+
+        {/* Bottom Spacing */}
+        <View style={{ height: 60 }} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    backgroundColor: '#0F172A',
   },
-  heroSection: {
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 36 : 12,
+    alignItems: 'center',
+    gap: 16,
+  },
+  topHeader: {
+    width: '100%',
+    maxWidth: 540,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  brandLogo: {
+    fontSize: 32,
+  },
+  brandName: {
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  brandTagline: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  onlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 6,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  onlineText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  tabNavContainer: {
+    width: '100%',
+    maxWidth: 540,
+    flexDirection: 'row',
+    backgroundColor: '#1E293B',
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  tabNavBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
   },
-  title: {
-    textAlign: 'center',
+  tabNavBtnActive: {
+    backgroundColor: '#10B981',
   },
-  code: {
-    textTransform: 'uppercase',
+  tabNavIcon: {
+    fontSize: 14,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  tabNavText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  tabNavTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+  boardSection: {
+    width: '100%',
+    maxWidth: 540,
+    alignItems: 'center',
+  },
+  modeBadgeContainer: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 4,
+  },
+  modeBadgeText: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });

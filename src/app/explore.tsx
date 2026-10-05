@@ -1,180 +1,251 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Pressable,
+} from 'react-native';
+import { useGameStore, PUZZLES } from '@/store/gamestore';
+import { ChessBoard } from '@/components/chess/chess-board';
+import { Puzzle } from '@/types/chess';
 
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+export default function PuzzlesExploreScreen() {
+  const { loadPuzzle, currentPuzzle } = useGameStore();
+  const [activePuzzleIndex, setActivePuzzleIndex] = useState(0);
 
-export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
+  const handleSelectPuzzle = (index: number) => {
+    setActivePuzzleIndex(index);
+    loadPuzzle(PUZZLES[index]);
   };
-  const theme = useTheme();
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+  const current = currentPuzzle || PUZZLES[activePuzzleIndex];
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>🧩 Tactics & Puzzles</Text>
+          <Text style={styles.headerSubtitle}>
+            Sharpen your tactical vision with daily checkmate challenges
+          </Text>
+        </View>
 
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
+        {/* Puzzle Selector Chips */}
+        <View style={styles.puzzleChipsRow}>
+          {PUZZLES.map((puzzle, idx) => (
+            <Pressable
+              key={puzzle.id}
+              style={[
+                styles.chip,
+                activePuzzleIndex === idx && styles.chipActive,
+              ]}
+              onPress={() => handleSelectPuzzle(idx)}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  activePuzzleIndex === idx && styles.chipTextActive,
+                ]}
+              >
+                Puzzle #{idx + 1} ({puzzle.rating})
+              </Text>
             </Pressable>
-          </ExternalLink>
-        </ThemedView>
+          ))}
+        </View>
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+        {/* Active Puzzle Card */}
+        <View style={styles.puzzleCard}>
+          <View style={styles.cardHeader}>
+            <View>
+              <Text style={styles.puzzleTitle}>{current.title}</Text>
+              <Text style={styles.puzzleDesc}>{current.description}</Text>
+            </View>
+            <View style={styles.ratingBadge}>
+              <Text style={styles.ratingText}>Elo {current.rating}</Text>
+            </View>
+          </View>
 
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
-            </ThemedView>
-          </Collapsible>
+          {/* Puzzle Chess Board */}
+          <ChessBoard />
+        </View>
 
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+        {/* Opening Lessons Section */}
+        <View style={styles.lessonsSection}>
+          <Text style={styles.sectionTitle}>📚 Master Openings Guide</Text>
 
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+          <View style={styles.lessonCard}>
+            <Text style={styles.lessonIcon}>⚔️</Text>
+            <View style={styles.lessonTextCol}>
+              <Text style={styles.lessonTitle}>Sicilian Defense (1. e4 c5)</Text>
+              <Text style={styles.lessonDesc}>
+                The most aggressive and sharp counter-attacking opening for Black against 1. e4.
+              </Text>
+            </View>
+          </View>
 
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+          <View style={styles.lessonCard}>
+            <Text style={styles.lessonIcon}>🛡️</Text>
+            <View style={styles.lessonTextCol}>
+              <Text style={styles.lessonTitle}>Ruy Lopez (1. e4 e5 2. Nf3 Nc6 3. Bb5)</Text>
+              <Text style={styles.lessonDesc}>
+                Classical opening focusing on rapid kingside development and central pressure.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.lessonCard}>
+            <Text style={styles.lessonIcon}>👑</Text>
+            <View style={styles.lessonTextCol}>
+              <Text style={styles.lessonTitle}>Queen's Gambit (1. d4 d5 2. c4)</Text>
+              <Text style={styles.lessonDesc}>
+                White offers a wing pawn to dominate the central squares d4 and e4.
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={{ height: 60 }} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+  },
   scrollView: {
     flex: 1,
   },
-  contentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
-  },
-  titleContainer: {
-    gap: Spacing.three,
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
     alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
+    gap: 16,
   },
-  centerText: {
-    textAlign: 'center',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
-    alignItems: 'center',
-  },
-  sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-  },
-  collapsibleContent: {
-    alignItems: 'center',
-  },
-  imageTutorial: {
+  header: {
     width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
+    maxWidth: 540,
+    gap: 4,
   },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
+  headerTitle: {
+    color: '#F8FAFC',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  headerSubtitle: {
+    color: '#94A3B8',
+    fontSize: 13,
+  },
+  puzzleChipsRow: {
+    width: '100%',
+    maxWidth: 540,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  chip: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  chipActive: {
+    backgroundColor: '#10B981',
+    borderColor: '#059669',
+  },
+  chipText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+  puzzleCard: {
+    width: '100%',
+    maxWidth: 540,
+    backgroundColor: '#1E293B',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cardHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  puzzleTitle: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  puzzleDesc: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  ratingBadge: {
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  ratingText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 11,
+  },
+  lessonsSection: {
+    width: '100%',
+    maxWidth: 540,
+    gap: 10,
+  },
+  sectionTitle: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  lessonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 12,
+  },
+  lessonIcon: {
+    fontSize: 24,
+  },
+  lessonTextCol: {
+    flex: 1,
+    gap: 2,
+  },
+  lessonTitle: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  lessonDesc: {
+    color: '#94A3B8',
+    fontSize: 11,
   },
 });
