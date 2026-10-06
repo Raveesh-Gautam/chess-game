@@ -8,7 +8,7 @@ import {
   Pressable,
 } from 'react-native';
 import { useGameStore, PUZZLES } from '@/store/gamestore';
-import { ChessBoard } from '@/components/chess/chess-board';
+import { ChessBoard } from '@/components/chess/Chessboard';
 import { Puzzle } from '@/types/chess';
 
 export default function PuzzlesExploreScreen() {

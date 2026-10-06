@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Square, PieceSymbol, Color } from 'chess.js';
 import { useGameStore, PendingPromotion } from '../../store/gamestore';
-import { ChessPiece } from './chess-piece';
+import { ChessPiece } from './Chesspiece';
 import { BoardTheme } from '../../types/chess';
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];

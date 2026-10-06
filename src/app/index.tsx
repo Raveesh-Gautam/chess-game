@@ -8,11 +8,11 @@ import {
   SafeAreaView,
   Platform,
 } from 'react-native';
-import { ProfileHeader } from '@/components/dashboard/profile-header';
-import { QuickModes } from '@/components/dashboard/quick-modes';
-import { StatsOverview } from '@/components/dashboard/stats-overview';
-import { ChessBoard } from '@/components/chess/chess-board';
-import { GameControls } from '@/components/chess/game-controls';
+import { ProfileHeader } from '@/components/dashboard/Profileheader';
+import { QuickModes } from '@/components/dashboard/Quickmodes';
+import { StatsOverview } from '@/components/dashboard/Statsoverview';
+import { ChessBoard } from '@/components/chess/Chessboard';
+import { GameControls } from '@/components/chess/Gamecontrols';
 import { useGameStore } from '@/store/gamestore';
 
 export default function DashboardScreen() {
@@ -93,10 +93,10 @@ export default function DashboardScreen() {
                 {mode === 'vsAI'
                   ? '🤖 VS BOT AI'
                   : mode === 'passAndPlay'
-                  ? '👥 PASS & PLAY (2 PLAYERS)'
-                  : mode === 'blitz'
-                  ? '⚡ SPEED BLITZ'
-                  : '🧩 PUZZLE SOLVER'}
+                    ? '👥 PASS & PLAY (2 PLAYERS)'
+                    : mode === 'blitz'
+                      ? '⚡ SPEED BLITZ'
+                      : '🧩 PUZZLE SOLVER'}
               </Text>
             </View>
 

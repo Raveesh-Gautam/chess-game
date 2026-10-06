@@ -18,8 +18,8 @@ export const StatsOverview: React.FC = () => {
                 match.result === 'win'
                   ? styles.winTag
                   : match.result === 'draw'
-                  ? styles.drawTag
-                  : styles.lossTag,
+                    ? styles.drawTag
+                    : styles.lossTag,
               ]}
             >
               <Text style={styles.resultText}>
