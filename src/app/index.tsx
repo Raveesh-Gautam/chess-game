@@ -14,7 +14,7 @@ import { StatsOverview } from '@/components/dashboard/Statsoverview';
 import { ChessBoard } from '@/components/chess/Chessboard';
 import { GameControls } from '@/components/chess/Gamecontrols';
 import { useGameStore } from '@/store/gamestore';
-
+import { PuzzlePanel } from '@/components/dashboard/PuzzlePanel';
 export default function DashboardScreen() {
   const [activeTab, setActiveTab] = useState<'board' | 'modes' | 'stats'>('board');
   const { mode } = useGameStore();
@@ -99,6 +99,7 @@ export default function DashboardScreen() {
                       : '🧩 PUZZLE SOLVER'}
               </Text>
             </View>
+            {mode === 'puzzle' && <PuzzlePanel />}
 
             <ChessBoard />
             <GameControls />

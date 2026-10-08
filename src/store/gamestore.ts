@@ -53,7 +53,7 @@ function evaluateBoard(chess: Chess): number {
         // Center control bonus
         let bonus = 0;
         if ((r === 3 || r === 4) && (c === 3 || c === 4)) bonus += 20;
-        
+
         if (piece.color === 'w') {
           totalEvaluation += (val + bonus);
         } else {
@@ -211,7 +211,6 @@ function calculateCaptured(chess: Chess): { captured: CapturedPieces; scoreDiff:
     scoreDiff: scoreW - scoreB,
   };
 }
-
 export type PendingPromotion = {
   from: Square;
   to: Square;
@@ -224,35 +223,30 @@ export interface GameState {
   legalMoves: Move[];
   lastMove: { from: Square; to: Square } | null;
   pendingPromotion: PendingPromotion;
-  
-  // Game parameters
+
   mode: GameMode;
   aiDifficulty: AIDifficulty;
-  playerColor: Color; // 'w' or 'b'
+  playerColor: Color;
   boardTheme: BoardTheme;
-  
-  // Clocks
-  whiteTime: number; // in seconds
+
+  whiteTime: number;
   blackTime: number;
   isTimerRunning: boolean;
-  
-  // Status
+
   isGameOver: boolean;
   gameResult: string | null;
   historySAN: string[];
   capturedPieces: CapturedPieces;
   materialDiff: number;
-  
-  // Puzzle mode
+
   currentPuzzle: Puzzle | null;
+  puzzleIndex: number;
   puzzleSolved: boolean;
   puzzleError: boolean;
-  
-  // User Stats
+
   stats: PlayerStats;
   recentMatches: MatchHistoryItem[];
 
-  // Actions
   onSquarePress: (sq: Square) => void;
   confirmPromotion: (piece: 'q' | 'r' | 'b' | 'n') => void;
   cancelPromotion: () => void;
@@ -263,7 +257,59 @@ export interface GameState {
   undo: () => void;
   reset: () => void;
   loadPuzzle: (puzzle: Puzzle) => void;
+  nextPuzzle: () => void;
   tickTimer: () => void;
+}
+
+type SetFn = (partial: Partial<GameState>) => void;
+type GetFn = () => GameState;
+
+// Blitz = 3 min, baaki = 10 min
+const getStartTime = (mode: GameMode) => (mode === 'blitz' ? 180 : 600);
+
+function getResultText(game: Chess): string | null {
+  if (game.isCheckmate()) {
+    return `Checkmate! ${game.turn() === 'w' ? 'Black' : 'White'} wins!`;
+  }
+  if (game.isDraw()) return 'Game Draw!';
+  return null;
+}
+
+// Game khatam hone par stats + history update (sirf vs Bot me)
+function recordResult(game: Chess, set: SetFn, get: GetFn) {
+  const { mode, playerColor, stats, recentMatches, aiDifficulty } = get();
+  if (mode !== 'vsAI') return;
+
+  let result: 'win' | 'loss' | 'draw';
+  if (game.isCheckmate()) {
+    const winner = game.turn() === 'w' ? 'b' : 'w';
+    result = winner === playerColor ? 'win' : 'loss';
+  } else if (game.isDraw()) {
+    result = 'draw';
+  } else {
+    return;
+  }
+
+  const newStats = {
+    ...stats,
+    wins: stats.wins + (result === 'win' ? 1 : 0),
+    losses: stats.losses + (result === 'loss' ? 1 : 0),
+    draws: stats.draws + (result === 'draw' ? 1 : 0),
+    rating: Math.max(100, stats.rating + (result === 'win' ? 12 : result === 'loss' ? -10 : 0)),
+    streak: result === 'win' ? stats.streak + 1 : result === 'loss' ? 0 : stats.streak,
+  };
+
+  const match = {
+    id: `m${Date.now()}`,
+    opponent: `Bot (${aiDifficulty})`,
+    result,
+    mode: 'vsAI',
+    movesCount: Math.ceil(game.history().length / 2),
+    date: 'Just now',
+    opening: 'Standard Game',
+  } as MatchHistoryItem;
+
+  set({ stats: newStats, recentMatches: [match, ...recentMatches].slice(0, 20) });
 }
 
 const initialChess = new Chess();
@@ -292,6 +338,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   materialDiff: 0,
 
   currentPuzzle: null,
+  puzzleIndex: 0,
   puzzleSolved: false,
   puzzleError: false,
 
@@ -305,49 +352,25 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   recentMatches: [
-    {
-      id: 'm1',
-      opponent: 'Grandmaster Bot',
-      result: 'win',
-      mode: 'vsAI',
-      movesCount: 34,
-      date: 'Today',
-      opening: 'Sicilian Defense',
-    },
-    {
-      id: 'm2',
-      opponent: 'Alex_Master',
-      result: 'draw',
-      mode: 'passAndPlay',
-      movesCount: 52,
-      date: 'Yesterday',
-      opening: 'Ruy Lopez',
-    },
-    {
-      id: 'm3',
-      opponent: 'Medium Bot',
-      result: 'win',
-      mode: 'vsAI',
-      movesCount: 22,
-      date: '2 days ago',
-      opening: 'Queen\'s Gambit Accepted',
-    },
+    { id: 'm1', opponent: 'Grandmaster Bot', result: 'win', mode: 'vsAI', movesCount: 34, date: 'Today', opening: 'Sicilian Defense' },
+    { id: 'm2', opponent: 'Alex_Master', result: 'draw', mode: 'passAndPlay', movesCount: 52, date: 'Yesterday', opening: 'Ruy Lopez' },
+    { id: 'm3', opponent: 'Medium Bot', result: 'win', mode: 'vsAI', movesCount: 22, date: '2 days ago', opening: "Queen's Gambit Accepted" },
   ],
 
   onSquarePress: (sq: Square) => {
-    const { game, selected, legalMoves, mode, playerColor, isGameOver, pendingPromotion } = get();
+    const {
+      game, selected, legalMoves, mode, playerColor,
+      isGameOver, pendingPromotion, puzzleSolved, puzzleError,
+    } = get();
 
     if (isGameOver || pendingPromotion) return;
+    if (mode === 'puzzle' && (puzzleSolved || puzzleError)) return;
+    if (mode === 'vsAI' && game.turn() !== playerColor) return;
 
-    // If vsAI mode and it's AI's turn, ignore user clicks
-    if (mode === 'vsAI' && game.turn() !== playerColor) {
-      return;
-    }
-
-    // Case 1: If a piece is already selected and target is a legal move
+    // Case 1: legal move chalna
     const targetMove = legalMoves.find((m) => m.to === sq);
     if (selected && targetMove) {
-      // Check if pawn promotion
+      // Promotion?
       if (
         targetMove.piece === 'p' &&
         ((targetMove.color === 'w' && sq.endsWith('8')) ||
@@ -357,41 +380,63 @@ export const useGameStore = create<GameState>((set, get) => ({
         return;
       }
 
-      // Execute normal move
       try {
         const moveResult = game.move({ from: selected, to: sq });
-        if (moveResult) {
-          const newFen = game.fen();
-          const { captured, scoreDiff } = calculateCaptured(game);
-          const history = game.history();
+        if (!moveResult) return;
 
-          let gameOver = game.isGameOver();
-          let res: string | null = null;
-          if (game.isCheckmate()) {
-            res = `Checkmate! ${game.turn() === 'w' ? 'Black' : 'White'} wins!`;
-          } else if (game.isDraw()) {
-            res = 'Game Draw!';
-          }
+        // ---------- PUZZLE MODE ----------
+        const { currentPuzzle, stats } = get();
+        if (mode === 'puzzle' && currentPuzzle) {
+          const played = moveResult.from + moveResult.to;
+          const correct = currentPuzzle.moves.includes(played);
 
           set({
-            fen: newFen,
+            fen: game.fen(),
             selected: null,
             legalMoves: [],
             lastMove: { from: selected, to: sq },
-            historySAN: history,
-            capturedPieces: captured,
-            materialDiff: scoreDiff,
-            isGameOver: gameOver,
-            gameResult: res,
-            isTimerRunning: !gameOver,
+            historySAN: game.history(),
+            puzzleSolved: correct,
+            puzzleError: !correct,
+            stats: correct ? { ...stats, puzzlesSolved: stats.puzzlesSolved + 1 } : stats,
           });
 
-          // Trigger AI move if vsAI
-          if (!gameOver && mode === 'vsAI' && game.turn() !== playerColor) {
+          if (!correct) {
+            // galat chaal: thodi der baad wapas
             setTimeout(() => {
-              get().makeAIMove();
-            }, 400);
+              game.undo();
+              set({
+                fen: game.fen(),
+                lastMove: null,
+                historySAN: game.history(),
+                puzzleError: false,
+              });
+            }, 900);
           }
+          return;
+        }
+
+        // ---------- NORMAL GAME ----------
+        const { captured, scoreDiff } = calculateCaptured(game);
+        const gameOver = game.isGameOver();
+
+        set({
+          fen: game.fen(),
+          selected: null,
+          legalMoves: [],
+          lastMove: { from: selected, to: sq },
+          historySAN: game.history(),
+          capturedPieces: captured,
+          materialDiff: scoreDiff,
+          isGameOver: gameOver,
+          gameResult: getResultText(game),
+          isTimerRunning: !gameOver,
+        });
+
+        if (gameOver) recordResult(game, set, get);
+
+        if (!gameOver && mode === 'vsAI' && game.turn() !== playerColor) {
+          setTimeout(() => get().makeAIMove(), 400);
         }
       } catch (err) {
         console.warn('Invalid move:', err);
@@ -399,7 +444,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       return;
     }
 
-    // Case 2: Select a piece of current turn's color
+    // Case 2: apna piece select karo
     const piece = game.get(sq);
     if (piece && piece.color === game.turn()) {
       const moves = game.moves({ square: sq, verbose: true });
@@ -407,7 +452,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       return;
     }
 
-    // Case 3: Clear selection
+    // Case 3: selection hatao
     set({ selected: null, legalMoves: [] });
   },
 
@@ -424,13 +469,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       if (moveResult) {
         const { captured, scoreDiff } = calculateCaptured(game);
-        let gameOver = game.isGameOver();
-        let res: string | null = null;
-        if (game.isCheckmate()) {
-          res = `Checkmate! ${game.turn() === 'w' ? 'Black' : 'White'} wins!`;
-        } else if (game.isDraw()) {
-          res = 'Game Draw!';
-        }
+        const gameOver = game.isGameOver();
 
         set({
           fen: game.fen(),
@@ -442,13 +481,14 @@ export const useGameStore = create<GameState>((set, get) => ({
           capturedPieces: captured,
           materialDiff: scoreDiff,
           isGameOver: gameOver,
-          gameResult: res,
+          gameResult: getResultText(game),
+          isTimerRunning: !gameOver && mode !== 'puzzle',
         });
 
+        if (gameOver) recordResult(game, set, get);
+
         if (!gameOver && mode === 'vsAI' && game.turn() !== playerColor) {
-          setTimeout(() => {
-            get().makeAIMove();
-          }, 400);
+          setTimeout(() => get().makeAIMove(), 400);
         }
       }
     } catch (e) {
@@ -468,13 +508,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (bestMove) {
       game.move(bestMove);
       const { captured, scoreDiff } = calculateCaptured(game);
-      let gameOver = game.isGameOver();
-      let res: string | null = null;
-      if (game.isCheckmate()) {
-        res = `Checkmate! ${game.turn() === 'w' ? 'Black' : 'White'} wins!`;
-      } else if (game.isDraw()) {
-        res = 'Game Draw!';
-      }
+      const gameOver = game.isGameOver();
 
       set({
         fen: game.fen(),
@@ -485,13 +519,23 @@ export const useGameStore = create<GameState>((set, get) => ({
         capturedPieces: captured,
         materialDiff: scoreDiff,
         isGameOver: gameOver,
-        gameResult: res,
+        gameResult: getResultText(game),
+        isTimerRunning: !gameOver,
       });
+
+      if (gameOver) recordResult(game, set, get);
     }
   },
 
   setMode: (mode, difficulty = 'medium') => {
+    // Puzzle mode: seedha pehla puzzle load karo
+    if (mode === 'puzzle') {
+      get().loadPuzzle(PUZZLES[0]);
+      return;
+    }
+
     const newGame = new Chess();
+    const startTime = getStartTime(mode);
     set({
       mode,
       aiDifficulty: difficulty,
@@ -506,50 +550,76 @@ export const useGameStore = create<GameState>((set, get) => ({
       materialDiff: 0,
       isGameOver: false,
       gameResult: null,
-      whiteTime: 600,
-      blackTime: 600,
+      whiteTime: startTime,
+      blackTime: startTime,
       isTimerRunning: true,
+      currentPuzzle: null,
+      puzzleSolved: false,
+      puzzleError: false,
     });
+
+    // Agar player Black hai to Bot (White) pehle chalega
+    if (mode === 'vsAI' && get().playerColor === 'b') {
+      setTimeout(() => get().makeAIMove(), 400);
+    }
   },
 
   setBoardTheme: (theme) => {
     set({ boardTheme: theme });
   },
 
+  // Color badalte hi naya game shuru
   setPlayerColor: (color) => {
     set({ playerColor: color });
-    const { mode, game } = get();
-    if (mode === 'vsAI' && color === 'b' && game.turn() === 'w') {
-      setTimeout(() => {
-        get().makeAIMove();
-      }, 400);
-    }
+    get().reset();
   },
 
   undo: () => {
-    const { game, mode } = get();
-    // If vsAI, undo twice (AI move + player move)
+    const { game, mode, playerColor, currentPuzzle } = get();
+
+    if (mode === 'puzzle' && currentPuzzle) {
+      get().loadPuzzle(currentPuzzle);
+      return;
+    }
+
+    if (game.history().length === 0) return;
+
     game.undo();
-    if (mode === 'vsAI') {
+    // vs Bot: jab tak aapki baari na aaye, undo karte raho
+    if (mode === 'vsAI' && game.turn() !== playerColor && game.history().length > 0) {
       game.undo();
     }
+
     const { captured, scoreDiff } = calculateCaptured(game);
-    const history = game.history();
     set({
       fen: game.fen(),
       selected: null,
       legalMoves: [],
       lastMove: null,
-      historySAN: history,
+      pendingPromotion: null,
+      historySAN: game.history(),
       capturedPieces: captured,
       materialDiff: scoreDiff,
       isGameOver: false,
       gameResult: null,
+      isTimerRunning: game.history().length > 0,
     });
+
+    if (mode === 'vsAI' && game.turn() !== playerColor) {
+      setTimeout(() => get().makeAIMove(), 400);
+    }
   },
 
   reset: () => {
+    const { mode, currentPuzzle, playerColor } = get();
+
+    if (mode === 'puzzle' && currentPuzzle) {
+      get().loadPuzzle(currentPuzzle);
+      return;
+    }
+
     const newGame = new Chess();
+    const startTime = getStartTime(mode);
     set({
       game: newGame,
       fen: newGame.fen(),
@@ -562,10 +632,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       materialDiff: 0,
       isGameOver: false,
       gameResult: null,
-      whiteTime: 600,
-      blackTime: 600,
+      whiteTime: startTime,
+      blackTime: startTime,
       isTimerRunning: false,
     });
+
+    if (mode === 'vsAI' && playerColor === 'b') {
+      setTimeout(() => get().makeAIMove(), 400);
+    }
   },
 
   loadPuzzle: (puzzle) => {
@@ -573,17 +647,28 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       mode: 'puzzle',
       currentPuzzle: puzzle,
+      puzzleIndex: Math.max(0, PUZZLES.findIndex((p) => p.id === puzzle.id)),
       game: puzzleGame,
       fen: puzzleGame.fen(),
+      playerColor: puzzleGame.turn(),
       selected: null,
       legalMoves: [],
       lastMove: null,
       pendingPromotion: null,
+      historySAN: [],
+      capturedPieces: { w: [], b: [] },
+      materialDiff: 0,
       puzzleSolved: false,
       puzzleError: false,
       isGameOver: false,
       gameResult: null,
+      isTimerRunning: false,
     });
+  },
+
+  nextPuzzle: () => {
+    const { puzzleIndex } = get();
+    get().loadPuzzle(PUZZLES[(puzzleIndex + 1) % PUZZLES.length]);
   },
 
   tickTimer: () => {

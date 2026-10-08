@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,8 @@ import {
   useWindowDimensions,
   Platform,
 } from 'react-native';
-import { Square, PieceSymbol, Color } from 'chess.js';
-import { useGameStore, PendingPromotion } from '../../store/gamestore';
+import { Chess, Square, PieceSymbol } from 'chess.js';
+import { useGameStore } from '../../store/gamestore';
 import { ChessPiece } from './Chesspiece';
 import { BoardTheme } from '../../types/chess';
 
@@ -50,7 +50,6 @@ export const ChessBoard: React.FC = () => {
   const { width } = useWindowDimensions();
 
   const {
-    game,
     fen,
     selected,
     legalMoves,
@@ -94,18 +93,20 @@ export const ChessBoard: React.FC = () => {
   }, [isTimerRunning, isGameOver, tickTimer]);
 
   const colors = THEME_COLORS[boardTheme] || THEME_COLORS.emerald;
-  const board = game.board();
+
+  // Board fen se banta hai: har move par fen badalta hai, to UI pakka update hota hai
+  const view = useMemo(() => new Chess(fen), [fen]);
+  const board = view.board();
+  const currentTurn = view.turn();
 
   // Find King square if in check
   let inCheckSquare: Square | null = null;
-  if (game.inCheck()) {
-    const turn = game.turn();
+  if (view.inCheck()) {
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
         const piece = board[r][c];
-        if (piece && piece.type === 'k' && piece.color === turn) {
+        if (piece && piece.type === 'k' && piece.color === currentTurn) {
           inCheckSquare = `${FILES[c]}${RANKS[r]}` as Square;
-          break;
         }
       }
     }
@@ -137,13 +138,14 @@ export const ChessBoard: React.FC = () => {
           ))}
         </View>
 
-        <View style={[styles.timerBadge, game.turn() === 'b' && styles.timerActive]}>
+        <View style={[styles.timerBadge, currentTurn === 'b' && styles.timerActive]}>
           <Text style={styles.timerText}>{formatTime(blackTime)}</Text>
         </View>
       </View>
 
       {/* Main Board Container */}
       <View style={[styles.boardWrapper, { width: boardSize, height: boardSize, borderColor: colors.border }]}>
+        {/* Layer 1: Squares (background, labels, dots) */}
         {ranksToDisplay.map((rankStr, rIdx) => {
           const r = RANKS.indexOf(rankStr);
           return (
@@ -198,11 +200,6 @@ export const ChessBoard: React.FC = () => {
                       </Text>
                     )}
 
-                    {/* Piece */}
-                    {piece && (
-                      <ChessPiece type={piece.type} color={piece.color} size={squareSize * 0.85} />
-                    )}
-
                     {/* Move indicator */}
                     {isLegalMove && !isCapture && (
                       <View
@@ -236,6 +233,37 @@ export const ChessBoard: React.FC = () => {
             </View>
           );
         })}
+
+        {/* Layer 2: Pieces (alag layer, touch ko pass kar deta hai) */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {ranksToDisplay.map((rankStr, rIdx) =>
+            filesToDisplay.map((fileStr, cIdx) => {
+              const r = RANKS.indexOf(rankStr);
+              const c = FILES.indexOf(fileStr);
+              const piece = board[r][c];
+              if (!piece) return null;
+
+              const sqName = `${fileStr}${rankStr}` as Square;
+
+              return (
+                <View
+                  key={`${sqName}-${piece.type}-${piece.color}`}
+                  style={{
+                    position: 'absolute',
+                    left: cIdx * squareSize,
+                    top: rIdx * squareSize,
+                    width: squareSize,
+                    height: squareSize,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  <ChessPiece type={piece.type} color={piece.color} size={squareSize * 0.85} />
+                </View>
+              );
+            })
+          )}
+        </View>
 
         {/* Game Over Banner Overlay */}
         {isGameOver && (
@@ -275,7 +303,7 @@ export const ChessBoard: React.FC = () => {
           ))}
         </View>
 
-        <View style={[styles.timerBadge, game.turn() === 'w' && styles.timerActive]}>
+        <View style={[styles.timerBadge, currentTurn === 'w' && styles.timerActive]}>
           <Text style={styles.timerText}>{formatTime(whiteTime)}</Text>
         </View>
       </View>
@@ -292,7 +320,7 @@ export const ChessBoard: React.FC = () => {
                   style={styles.promotionBtn}
                   onPress={() => confirmPromotion(piece as any)}
                 >
-                  <ChessPiece type={piece} color={game.turn()} size={44} />
+                  <ChessPiece type={piece} color={currentTurn} size={44} />
                 </Pressable>
               ))}
             </View>
@@ -415,10 +443,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239, 68, 68, 0.85)',
   },
   gameOverOverlay: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15, 23, 42, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 100,
   },
   gameOverCard: {
     backgroundColor: '#1E293B',

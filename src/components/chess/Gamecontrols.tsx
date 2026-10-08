@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { useGameStore } from '../../store/gamestore';
-import { GameMode, AIDifficulty, BoardTheme } from '../../types/chess';
+import { AIDifficulty, BoardTheme } from '../../types/chess';
 
 export const GameControls: React.FC = () => {
   const {
@@ -13,6 +13,8 @@ export const GameControls: React.FC = () => {
     undo,
     reset,
     historySAN,
+    playerColor,
+    setPlayerColor,
   } = useGameStore();
 
   const themes: { id: BoardTheme; name: string; color: string }[] = [
@@ -28,6 +30,11 @@ export const GameControls: React.FC = () => {
     { id: 'hard', name: 'Master', rating: '1900' },
     { id: 'grandmaster', name: 'Grandmaster', rating: '2400' },
   ];
+
+  const colorOptions = [
+    { id: 'w', name: '⚪ White' },
+    { id: 'b', name: '⚫ Black' },
+  ] as const;
 
   return (
     <View style={styles.container}>
@@ -60,32 +67,61 @@ export const GameControls: React.FC = () => {
         </Pressable>
       </View>
 
-      {/* Bot Difficulty Selector (If vsAI) */}
+      {/* Bot settings (sirf vsAI me) */}
       {mode === 'vsAI' && (
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Bot Difficulty</Text>
-          <View style={styles.optionsRow}>
-            {difficulties.map((diff) => (
-              <Pressable
-                key={diff.id}
-                style={[
-                  styles.optionChip,
-                  aiDifficulty === diff.id && styles.optionChipSelected,
-                ]}
-                onPress={() => setMode('vsAI', diff.id)}
-              >
-                <Text
+        <>
+          {/* Difficulty */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Bot Difficulty</Text>
+            <View style={styles.optionsRow}>
+              {difficulties.map((diff) => (
+                <Pressable
+                  key={diff.id}
                   style={[
-                    styles.chipText,
-                    aiDifficulty === diff.id && styles.chipTextSelected,
+                    styles.optionChip,
+                    aiDifficulty === diff.id && styles.optionChipSelected,
                   ]}
+                  onPress={() => setMode('vsAI', diff.id)}
                 >
-                  {diff.name} ({diff.rating})
-                </Text>
-              </Pressable>
-            ))}
+                  <Text
+                    style={[
+                      styles.chipText,
+                      aiDifficulty === diff.id && styles.chipTextSelected,
+                    ]}
+                  >
+                    {diff.name} ({diff.rating})
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
-        </View>
+
+          {/* Play As */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Play As</Text>
+            <View style={styles.optionsRow}>
+              {colorOptions.map((c) => (
+                <Pressable
+                  key={c.id}
+                  style={[
+                    styles.optionChip,
+                    playerColor === c.id && styles.optionChipSelected,
+                  ]}
+                  onPress={() => setPlayerColor(c.id)}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      playerColor === c.id && styles.chipTextSelected,
+                    ]}
+                  >
+                    {c.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </>
       )}
 
       {/* Board Theme Picker */}
