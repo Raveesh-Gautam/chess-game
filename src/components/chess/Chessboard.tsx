@@ -8,7 +8,7 @@ import {
   useWindowDimensions,
   Platform,
 } from 'react-native';
-import { Chess, Square, PieceSymbol } from 'chess.js';
+import { Chess, Square, PieceSymbol, Color } from 'chess.js';
 import { useGameStore } from '../../store/gamestore';
 import { ChessPiece } from './Chesspiece';
 import { BoardTheme } from '../../types/chess';
@@ -46,6 +46,104 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
+type Outcome = {
+  winner: 'w' | 'b' | null; // null = draw / unknown
+  title: string;
+  subtitle: string;
+};
+
+// Works out who won (or if it was a draw) from the board position and clocks.
+// Note: threefold repetition can't be detected from a FEN alone (no move history),
+// so it falls through to the store's `gameResult` text.
+function getOutcome(
+  view: Chess,
+  whiteTime: number,
+  blackTime: number,
+  fallback: string | null | undefined
+): Outcome {
+  // Timeout
+  if (whiteTime <= 0) {
+    return { winner: 'b', title: 'Black Wins! 🏆', subtitle: 'White ran out of time' };
+  }
+  if (blackTime <= 0) {
+    return { winner: 'w', title: 'White Wins! 🏆', subtitle: 'Black ran out of time' };
+  }
+
+  // Checkmate: the side to move is the loser
+  if (view.isCheckmate()) {
+    const winner = view.turn() === 'w' ? 'b' : 'w';
+    return {
+      winner,
+      title: winner === 'w' ? 'White Wins! 🏆' : 'Black Wins! 🏆',
+      subtitle: 'Checkmate',
+    };
+  }
+
+  // Draws
+  if (view.isStalemate()) return { winner: null, title: 'Draw 🤝', subtitle: 'Stalemate' };
+  if (view.isInsufficientMaterial())
+    return { winner: null, title: 'Draw 🤝', subtitle: 'Insufficient material' };
+  if (view.isDraw()) return { winner: null, title: 'Draw 🤝', subtitle: '50-move rule' };
+
+  // Resignation, repetition, etc. (text coming from the store)
+  return { winner: null, title: 'Game Over', subtitle: fallback || 'Match Ended' };
+}
+
+// ---------- Player bar (orientation-aware) ----------
+type BarProps = {
+  color: Color;
+  width: number;
+  name: string;
+  time: number;
+  active: boolean;
+  diff: number;
+  captured: PieceSymbol[];
+  showTimer: boolean;
+};
+
+const PlayerBar: React.FC<BarProps> = ({
+  color,
+  width,
+  name,
+  time,
+  active,
+  diff,
+  captured,
+  showTimer,
+}) => (
+  <View style={[styles.playerHeader, { width }]}>
+    <View style={styles.playerInfo}>
+      <View
+        style={[
+          styles.colorIndicator,
+          color === 'w'
+            ? { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#CCC' }
+            : { backgroundColor: '#1A1D20' },
+        ]}
+      />
+      <Text style={styles.playerName}>{name}</Text>
+      {diff > 0 && (
+        <View style={styles.diffBadge}>
+          <Text style={styles.diffText}>+{diff}</Text>
+        </View>
+      )}
+    </View>
+
+    {/* Pieces captured by this player */}
+    <View style={styles.capturedRow}>
+      {captured.map((p, i) => (
+        <ChessPiece key={`cap-${color}-${i}`} type={p} color={color === 'w' ? 'b' : 'w'} size={18} />
+      ))}
+    </View>
+
+    {showTimer && (
+      <View style={[styles.timerBadge, active && styles.timerActive]}>
+        <Text style={styles.timerText}>{formatTime(time)}</Text>
+      </View>
+    )}
+  </View>
+);
+
 export const ChessBoard: React.FC = () => {
   const { width } = useWindowDimensions();
 
@@ -79,10 +177,10 @@ export const ChessBoard: React.FC = () => {
   const squareSize = Math.floor(maxBoardWidth / 8);
   const boardSize = squareSize * 8;
 
-  // Clock interval
+  // Clock interval (puzzle mein clock nahi chalti)
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
-    if (isTimerRunning && !isGameOver) {
+    if (isTimerRunning && !isGameOver && mode !== 'puzzle') {
       interval = setInterval(() => {
         tickTimer();
       }, 1000);
@@ -90,14 +188,22 @@ export const ChessBoard: React.FC = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isTimerRunning, isGameOver, tickTimer]);
+  }, [isTimerRunning, isGameOver, mode, tickTimer]);
 
   const colors = THEME_COLORS[boardTheme] || THEME_COLORS.emerald;
 
-  // Board fen se banta hai: har move par fen badalta hai, to UI pakka update hota hai
+  // Built from the FEN: it changes on every move, so the UI always updates
   const view = useMemo(() => new Chess(fen), [fen]);
   const board = view.board();
   const currentTurn = view.turn();
+
+  // Game outcome (winner / draw)
+  const outcome = useMemo(
+    () => (isGameOver ? getOutcome(view, whiteTime, blackTime, gameResult) : null),
+    [isGameOver, view, whiteTime, blackTime, gameResult]
+  );
+  const youWon = !!outcome?.winner && outcome.winner === playerColor;
+  const youLost = !!outcome?.winner && outcome.winner !== playerColor;
 
   // Find King square if in check
   let inCheckSquare: Square | null = null;
@@ -115,33 +221,37 @@ export const ChessBoard: React.FC = () => {
   const ranksToDisplay = playerColor === 'b' ? [...RANKS].reverse() : RANKS;
   const filesToDisplay = playerColor === 'b' ? [...FILES].reverse() : FILES;
 
+  // Player bars: neeche hamesha playerColor, upar opponent
+  const bottomColor: Color = playerColor;
+  const topColor: Color = playerColor === 'w' ? 'b' : 'w';
+  const showTimer = mode !== 'puzzle';
+
+  const barProps = (c: Color): BarProps => ({
+    color: c,
+    width: boardSize,
+    name:
+      mode === 'vsAI'
+        ? c === playerColor
+          ? 'You'
+          : `Bot (${aiDifficulty})`
+        : mode === 'puzzle'
+          ? c === playerColor
+            ? 'You'
+            : 'Opponent'
+          : c === 'w'
+            ? 'White'
+            : 'Black',
+    time: c === 'w' ? whiteTime : blackTime,
+    active: currentTurn === c,
+    diff: c === 'w' ? materialDiff : -materialDiff,
+    captured: capturedPieces[c],
+    showTimer,
+  });
+
   return (
     <View style={styles.container}>
       {/* Top Player Status Bar */}
-      <View style={[styles.playerHeader, { width: boardSize }]}>
-        <View style={styles.playerInfo}>
-          <View style={[styles.colorIndicator, { backgroundColor: '#1A1D20' }]} />
-          <Text style={styles.playerName}>
-            {mode === 'vsAI' ? `Bot AI (${aiDifficulty})` : 'Black'}
-          </Text>
-          {materialDiff < 0 && (
-            <View style={styles.diffBadge}>
-              <Text style={styles.diffText}>+{Math.abs(materialDiff)}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Captured by Black */}
-        <View style={styles.capturedRow}>
-          {capturedPieces.b.map((p, idx) => (
-            <ChessPiece key={`cap-b-${idx}`} type={p} color="w" size={18} />
-          ))}
-        </View>
-
-        <View style={[styles.timerBadge, currentTurn === 'b' && styles.timerActive]}>
-          <Text style={styles.timerText}>{formatTime(blackTime)}</Text>
-        </View>
-      </View>
+      <PlayerBar {...barProps(topColor)} />
 
       {/* Main Board Container */}
       <View style={[styles.boardWrapper, { width: boardSize, height: boardSize, borderColor: colors.border }]}>
@@ -234,7 +344,7 @@ export const ChessBoard: React.FC = () => {
           );
         })}
 
-        {/* Layer 2: Pieces (alag layer, touch ko pass kar deta hai) */}
+        {/* Layer 2: Pieces (separate layer, lets touches pass through) */}
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           {ranksToDisplay.map((rankStr, rIdx) =>
             filesToDisplay.map((fileStr, cIdx) => {
@@ -266,18 +376,34 @@ export const ChessBoard: React.FC = () => {
         </View>
 
         {/* Game Over Banner Overlay */}
-        {isGameOver && (
+        {isGameOver && outcome && (
           <View style={styles.gameOverOverlay}>
-            <View style={styles.gameOverCard}>
-              <Text style={styles.gameOverTitle}>🏆 Game Over</Text>
-              <Text style={styles.gameOverResult}>{gameResult || 'Match Ended'}</Text>
+            <View
+              style={[
+                styles.gameOverCard,
+                youWon && styles.winCard,
+                youLost && mode === 'vsAI' && styles.loseCard,
+              ]}
+            >
+              <Text style={styles.gameOverTitle}>
+                {mode === 'vsAI' && outcome.winner
+                  ? youWon
+                    ? '🎉 You Win!'
+                    : '😞 You Lost'
+                  : outcome.title}
+              </Text>
+              <Text style={styles.gameOverResult}>{outcome.subtitle}</Text>
+
               <View style={styles.gameOverButtons}>
                 <Pressable style={styles.actionBtnPrimary} onPress={reset}>
                   <Text style={styles.actionBtnTextPrimary}>New Match</Text>
                 </Pressable>
-                <Pressable style={styles.actionBtnSecondary} onPress={undo}>
-                  <Text style={styles.actionBtnTextSecondary}>Undo Move</Text>
-                </Pressable>
+                {/* Undo makes no sense after a timeout, so only show it when both clocks have time */}
+                {whiteTime > 0 && blackTime > 0 && (
+                  <Pressable style={styles.actionBtnSecondary} onPress={undo}>
+                    <Text style={styles.actionBtnTextSecondary}>Undo Move</Text>
+                  </Pressable>
+                )}
               </View>
             </View>
           </View>
@@ -285,28 +411,7 @@ export const ChessBoard: React.FC = () => {
       </View>
 
       {/* Bottom Player Status Bar */}
-      <View style={[styles.playerHeader, { width: boardSize }]}>
-        <View style={styles.playerInfo}>
-          <View style={[styles.colorIndicator, { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#CCC' }]} />
-          <Text style={styles.playerName}>White (You)</Text>
-          {materialDiff > 0 && (
-            <View style={styles.diffBadge}>
-              <Text style={styles.diffText}>+{materialDiff}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Captured by White */}
-        <View style={styles.capturedRow}>
-          {capturedPieces.w.map((p, idx) => (
-            <ChessPiece key={`cap-w-${idx}`} type={p} color="b" size={18} />
-          ))}
-        </View>
-
-        <View style={[styles.timerBadge, currentTurn === 'w' && styles.timerActive]}>
-          <Text style={styles.timerText}>{formatTime(whiteTime)}</Text>
-        </View>
-      </View>
+      <PlayerBar {...barProps(bottomColor)} />
 
       {/* Pawn Promotion Modal */}
       <Modal visible={!!pendingPromotion} transparent animationType="fade">
@@ -457,6 +562,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
     width: '80%',
+  },
+  winCard: {
+    borderColor: '#10B981',
+    borderWidth: 2,
+  },
+  loseCard: {
+    borderColor: '#EF4444',
+    borderWidth: 2,
   },
   gameOverTitle: {
     fontSize: 22,

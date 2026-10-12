@@ -2,32 +2,31 @@ import { create } from 'zustand';
 import { Chess, Move, Square, PieceSymbol, Color } from 'chess.js';
 import { GameMode, AIDifficulty, BoardTheme, PlayerStats, MatchHistoryItem, Puzzle, CapturedPieces } from '../types/chess';
 
-// Sample puzzles
 export const PUZZLES: Puzzle[] = [
   {
     id: 'p1',
     title: 'Back Rank Mate',
     fen: '6k1/5ppp/8/8/8/8/5PPP/1R4K1 w - - 0 1',
-    moves: ['b1rb8', 'b1b8'],
-    description: 'White to move and deliver checkmate in 1 move.',
+    moves: ['b1b8'],
+    description: 'White to move: checkmate in 1.',
     rating: 1100,
   },
   {
     id: 'p2',
-    title: 'Smothered Mate Threat',
+    title: 'Back Rank Queen',
     fen: '6k1/5ppp/8/8/4N3/8/5PPP/1Q4K1 w - - 0 1',
     moves: ['b1b8'],
-    description: 'Find the winning move for White.',
+    description: 'Find the mating move.',
     rating: 1250,
   },
   {
     id: 'p3',
-    title: 'Royal Fork',
-    fen: 'r1bqk2r/pppp1ppp/2n2n2/4p3/1b2P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 4 5',
-    moves: ['c3d5'],
-    description: 'Execute a strong tactical knight maneuver in the center.',
-    rating: 1400,
-  }
+    title: "Scholar's Mate",
+    fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4',
+    moves: ['h5f7'],
+    description: 'Queen + Bishop: deliver mate.',
+    rating: 900,
+  },
 ];
 
 // Piece values for evaluation
@@ -39,6 +38,8 @@ const PIECE_VALUES: Record<PieceSymbol, number> = {
   q: 900,
   k: 20000,
 };
+
+const MATE_SCORE = 100000;
 
 // Simple position evaluation for minimax
 function evaluateBoard(chess: Chess): number {
@@ -55,14 +56,23 @@ function evaluateBoard(chess: Chess): number {
         if ((r === 3 || r === 4) && (c === 3 || c === 4)) bonus += 20;
 
         if (piece.color === 'w') {
-          totalEvaluation += (val + bonus);
+          totalEvaluation += val + bonus;
         } else {
-          totalEvaluation -= (val + bonus);
+          totalEvaluation -= val + bonus;
         }
       }
     }
   }
   return totalEvaluation;
+}
+
+// Move ordering: captures first (alpha-beta ko fast karta hai)
+function orderMoves(moves: Move[]): Move[] {
+  return [...moves].sort((a, b) => {
+    const av = a.captured ? PIECE_VALUES[a.captured] - PIECE_VALUES[a.piece] / 10 : 0;
+    const bv = b.captured ? PIECE_VALUES[b.captured] - PIECE_VALUES[b.piece] / 10 : 0;
+    return bv - av;
+  });
 }
 
 // Minimax with Alpha-Beta pruning for AI
@@ -73,11 +83,12 @@ function minimax(
   beta: number,
   isMaximizing: boolean
 ): number {
-  if (depth === 0 || chess.isGameOver()) {
-    return evaluateBoard(chess);
-  }
+  // Mate / draw detection (jaldi mate = zyada score)
+  if (chess.isCheckmate()) return isMaximizing ? -MATE_SCORE - depth : MATE_SCORE + depth;
+  if (chess.isDraw()) return 0;
+  if (depth === 0) return evaluateBoard(chess);
 
-  const moves = chess.moves({ verbose: true });
+  const moves = orderMoves(chess.moves({ verbose: true }));
   if (isMaximizing) {
     let maxEval = -Infinity;
     for (const move of moves) {
@@ -105,38 +116,40 @@ function minimax(
 
 // Get best move for AI
 function getBestMove(chess: Chess, difficulty: AIDifficulty): Move | null {
-  const moves = chess.moves({ verbose: true });
+  const moves = orderMoves(chess.moves({ verbose: true }));
   if (moves.length === 0) return null;
 
   if (difficulty === 'easy') {
-    // 70% random, 30% capture
-    const captures = moves.filter(m => m.captured);
+    // Mostly random, kabhi kabhi capture
+    const captures = moves.filter((m) => m.captured);
     if (captures.length > 0 && Math.random() > 0.5) {
       return captures[Math.floor(Math.random() * captures.length)];
     }
     return moves[Math.floor(Math.random() * moves.length)];
   }
 
+  const isMaximizing = chess.turn() === 'w';
+
   if (difficulty === 'medium') {
-    // 1-ply search (best capture / position)
+    // 1-ply search (mate dekhta hai, baaki material/position)
     let bestMove = moves[0];
-    let bestValue = chess.turn() === 'w' ? -Infinity : Infinity;
+    let bestValue = isMaximizing ? -Infinity : Infinity;
 
     for (const move of moves) {
       chess.move(move);
-      const boardVal = evaluateBoard(chess);
+      let boardVal: number;
+      if (chess.isCheckmate()) {
+        boardVal = isMaximizing ? MATE_SCORE : -MATE_SCORE;
+      } else if (chess.isDraw()) {
+        boardVal = 0;
+      } else {
+        boardVal = evaluateBoard(chess);
+      }
       chess.undo();
 
-      if (chess.turn() === 'w') {
-        if (boardVal > bestValue) {
-          bestValue = boardVal;
-          bestMove = move;
-        }
-      } else {
-        if (boardVal < bestValue) {
-          bestValue = boardVal;
-          bestMove = move;
-        }
+      if (isMaximizing ? boardVal > bestValue : boardVal < bestValue) {
+        bestValue = boardVal;
+        bestMove = move;
       }
     }
     return bestMove;
@@ -145,7 +158,6 @@ function getBestMove(chess: Chess, difficulty: AIDifficulty): Move | null {
   // Hard & Grandmaster: 2 or 3 ply Minimax
   const depth = difficulty === 'grandmaster' ? 3 : 2;
   let bestMove = moves[0];
-  const isMaximizing = chess.turn() === 'w';
   let bestValue = isMaximizing ? -Infinity : Infinity;
 
   for (const move of moves) {
@@ -153,16 +165,9 @@ function getBestMove(chess: Chess, difficulty: AIDifficulty): Move | null {
     const value = minimax(chess, depth - 1, -Infinity, Infinity, !isMaximizing);
     chess.undo();
 
-    if (isMaximizing) {
-      if (value > bestValue) {
-        bestValue = value;
-        bestMove = move;
-      }
-    } else {
-      if (value < bestValue) {
-        bestValue = value;
-        bestMove = move;
-      }
+    if (isMaximizing ? value > bestValue : value < bestValue) {
+      bestValue = value;
+      bestMove = move;
     }
   }
 
@@ -193,13 +198,13 @@ function calculateCaptured(chess: Chess): { captured: CapturedPieces; scoreDiff:
   let scoreB = 0;
 
   (['q', 'r', 'b', 'n', 'p'] as PieceSymbol[]).forEach((type) => {
-    const missingB = initialPieces[type] - currentB[type];
+    const missingB = Math.max(0, initialPieces[type] - currentB[type]);
     for (let i = 0; i < missingB; i++) {
       capturedW.push(type);
       scoreW += PIECE_VALUES[type] / 100;
     }
 
-    const missingW = initialPieces[type] - currentW[type];
+    const missingW = Math.max(0, initialPieces[type] - currentW[type]);
     for (let i = 0; i < missingW; i++) {
       capturedB.push(type);
       scoreB += PIECE_VALUES[type] / 100;
@@ -211,6 +216,7 @@ function calculateCaptured(chess: Chess): { captured: CapturedPieces; scoreDiff:
     scoreDiff: scoreW - scoreB,
   };
 }
+
 export type PendingPromotion = {
   from: Square;
   to: Square;
@@ -276,12 +282,15 @@ function getResultText(game: Chess): string | null {
 }
 
 // Game khatam hone par stats + history update (sirf vs Bot me)
-function recordResult(game: Chess, set: SetFn, get: GetFn) {
+// timeoutWinner: agar game time khatam hone se khatam hua
+function recordResult(game: Chess, set: SetFn, get: GetFn, timeoutWinner?: Color) {
   const { mode, playerColor, stats, recentMatches, aiDifficulty } = get();
   if (mode !== 'vsAI') return;
 
   let result: 'win' | 'loss' | 'draw';
-  if (game.isCheckmate()) {
+  if (timeoutWinner) {
+    result = timeoutWinner === playerColor ? 'win' : 'loss';
+  } else if (game.isCheckmate()) {
     const winner = game.turn() === 'w' ? 'b' : 'w';
     result = winner === playerColor ? 'win' : 'loss';
   } else if (game.isDraw()) {
@@ -501,8 +510,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   makeAIMove: () => {
-    const { game, aiDifficulty, isGameOver } = get();
+    const { game, aiDifficulty, isGameOver, mode, playerColor } = get();
     if (isGameOver || game.isGameOver()) return;
+    // Stale timeout guard: undo/reset/mode change ke baad purana timeout na chale
+    if (mode !== 'vsAI' || game.turn() === playerColor) return;
 
     const bestMove = getBestMove(game, aiDifficulty);
     if (bestMove) {
@@ -552,7 +563,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       gameResult: null,
       whiteTime: startTime,
       blackTime: startTime,
-      isTimerRunning: true,
+      isTimerRunning: false, // pehli chaal ke baad clock shuru hogi
       currentPuzzle: null,
       puzzleSolved: false,
       puzzleError: false,
@@ -672,18 +683,20 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   tickTimer: () => {
-    const { isTimerRunning, game, whiteTime, blackTime, isGameOver } = get();
-    if (!isTimerRunning || isGameOver) return;
+    const { isTimerRunning, game, whiteTime, blackTime, isGameOver, mode } = get();
+    if (!isTimerRunning || isGameOver || mode === 'puzzle') return;
 
     if (game.turn() === 'w') {
       if (whiteTime <= 1) {
         set({ whiteTime: 0, isGameOver: true, gameResult: 'Black wins on time!', isTimerRunning: false });
+        recordResult(game, set, get, 'b');
       } else {
         set({ whiteTime: whiteTime - 1 });
       }
     } else {
       if (blackTime <= 1) {
         set({ blackTime: 0, isGameOver: true, gameResult: 'White wins on time!', isTimerRunning: false });
+        recordResult(game, set, get, 'w');
       } else {
         set({ blackTime: blackTime - 1 });
       }

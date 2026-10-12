@@ -24,8 +24,8 @@ export const PuzzlePanel: React.FC = () => {
 
       <Text style={styles.desc}>{currentPuzzle.description}</Text>
 
-      {puzzleSolved && <Text style={styles.msgGood}>✅ Sahi! Puzzle solve ho gaya.</Text>}
-      {puzzleError && <Text style={styles.msgBad}>❌ Galat chaal, dobara try karo...</Text>}
+      {puzzleSolved && <Text style={styles.msgGood}>✅ Correct! Puzzle solved.</Text>}
+      {puzzleError && <Text style={styles.msgBad}>❌ Wrong move, try again...</Text>}
 
       <View style={styles.btnRow}>
         <Pressable style={styles.btnSecondary} onPress={reset}>
