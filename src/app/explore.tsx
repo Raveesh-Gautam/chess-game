@@ -38,7 +38,12 @@ export default function PuzzlesExploreScreen() {
         </View>
 
         {/* Puzzle Selector Chips */}
-        <View style={styles.puzzleChipsRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ width: '100%', maxWidth: 540 }}
+          contentContainerStyle={styles.puzzleChipsRow}
+        >
           {PUZZLES.map((puzzle, idx) => (
             <Pressable
               key={puzzle.id}
@@ -58,7 +63,7 @@ export default function PuzzlesExploreScreen() {
               </Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
 
         {/* Active Puzzle Card */}
         <View style={styles.puzzleCard}>
@@ -140,14 +145,13 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     fontSize: 22,
     fontWeight: '900',
+    marginTop: 20,
   },
   headerSubtitle: {
     color: '#94A3B8',
     fontSize: 13,
   },
   puzzleChipsRow: {
-    width: '100%',
-    maxWidth: 540,
     flexDirection: 'row',
     gap: 8,
   },

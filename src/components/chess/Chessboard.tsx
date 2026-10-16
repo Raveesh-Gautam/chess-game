@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
+
 import {
   View,
   Text,
@@ -12,6 +13,7 @@ import { Chess, Square, PieceSymbol, Color } from 'chess.js';
 import { useGameStore } from '../../store/gamestore';
 import { ChessPiece } from './Chesspiece';
 import { BoardTheme } from '../../types/chess';
+import { colors, space, radius, type } from './chess-theme';
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
@@ -279,7 +281,7 @@ export const ChessBoard: React.FC = () => {
                 let backgroundColor = isDark ? colors.dark : colors.light;
 
                 if (isSelected) {
-                  backgroundColor = '#F59E0B'; // Amber highlight for selected
+                  backgroundColor = '#F59E0B'; 
                 } else if (isLastMoveFrom || isLastMoveTo) {
                   backgroundColor = isDark ? '#B4902F' : '#E9D68A';
                 }

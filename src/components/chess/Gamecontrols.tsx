@@ -67,7 +67,7 @@ export const GameControls: React.FC = () => {
         </Pressable>
       </View>
 
-      {/* Bot settings (sirf vsAI me) */}
+      {/* Bot settings  */}
       {mode === 'vsAI' && (
         <>
           {/* Difficulty */}
