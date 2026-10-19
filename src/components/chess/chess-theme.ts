@@ -1,25 +1,60 @@
+// chess-theme.ts
+import { Platform, ViewStyle } from 'react-native';
+
 export const colors = {
-  bg: '#14161A',
-  surface: '#1C1F25',
-  surfaceAlt: '#262A32',
-  border: '#2E333C',
-
-  text: '#F3F4F6',
-  textMuted: '#8B93A1',
-
-  accent: '#10B981',
-  accentSoft: 'rgba(16, 185, 129, 0.14)',
+  bg: '#0B1220',
+  surface: '#1E293B',
+  surfaceAlt: '#0F172A',
+  surfaceRaised: '#273449',
+  border: '#334155',
+  borderSoft: '#243045',
+  text: '#F8FAFC',
+  textSoft: '#CBD5E1',
+  textMuted: '#94A3B8',
+  textDim: '#64748B',
+  primary: '#10B981',
+  primaryDark: '#059669',
+  primaryBg: '#064E3B',
   danger: '#EF4444',
-} as const;
+  dangerBg: '#450A0A',
+  warning: '#F59E0B',
+  info: '#38BDF8',
+  purple: '#7C3AED',
+};
 
-// 4pt grid
-export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
+export const space = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
+};
 
-export const radius = { sm: 8, md: 12, lg: 16, full: 999 } as const;
+export const radius = {
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 20,
+  pill: 999,
+};
 
-// 3 text styles, 2 weights
 export const type = {
-  caption: { fontSize: 12, fontWeight: '500' },
-  body: { fontSize: 14, fontWeight: '500' },
-  title: { fontSize: 18, fontWeight: '700' },
-} as const;
+  micro: 10,
+  caption: 11,
+  small: 12,
+  body: 14,
+  title: 16,
+  h2: 20,
+  h1: 24,
+};
+
+export const mono = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
+
+export const shadow = (elevation = 4): ViewStyle => ({
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: Math.round(elevation / 2) },
+  shadowOpacity: 0.3,
+  shadowRadius: elevation * 1.5,
+  elevation,
+});

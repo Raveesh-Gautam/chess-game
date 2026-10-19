@@ -9,22 +9,8 @@ interface ChessPieceProps {
 }
 
 const PIECE_UNICODE: Record<Color, Record<PieceSymbol, string>> = {
-  w: {
-    k: '♔',
-    q: '♕',
-    r: '♖',
-    b: '♗',
-    n: '♘',
-    p: '♙',
-  },
-  b: {
-    k: '♚',
-    q: '♛',
-    r: '♜',
-    b: '♝',
-    n: '♞',
-    p: '♟',
-  },
+  w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
+  b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
 };
 
 export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 32 }) => {
@@ -38,13 +24,14 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 32 }
           styles.pieceText,
           {
             fontSize: size * 0.82,
-            lineHeight: size,
+            lineHeight: size * 1.05,
             color: isWhite ? '#FFFFFF' : '#1A1D20',
-            textShadowColor: isWhite ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.4)',
+            textShadowColor: isWhite ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.45)',
             textShadowOffset: { width: 0, height: 1 },
             textShadowRadius: 2,
           },
         ]}
+        allowFontScaling={false}
       >
         {symbol}
       </Text>
@@ -59,7 +46,7 @@ const styles = StyleSheet.create({
   },
   pieceText: {
     textAlign: 'center',
-    fontWeight: '700',
+    textAlignVertical: 'center',
     includeFontPadding: false,
   },
 });

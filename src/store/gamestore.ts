@@ -270,8 +270,8 @@ export interface GameState {
 type SetFn = (partial: Partial<GameState>) => void;
 type GetFn = () => GameState;
 
-// Blitz = 3 min, baaki = 10 min
-const getStartTime = (mode: GameMode) => (mode === 'blitz' ? 180 : 600);
+// Blitz = 3 min, rest = 10 min
+const getStartTime = (mode: GameMode) => (mode === 'blitz' ? 180 : 100);
 
 function getResultText(game: Chess): string | null {
   if (game.isCheckmate()) {

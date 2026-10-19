@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useGameStore } from '../../store/gamestore';
+import { colors, space, radius, type } from '../chess/chess-theme';
 
 export const StatsOverview: React.FC = () => {
   const { recentMatches, stats } = useGameStore();
@@ -28,8 +29,10 @@ export const StatsOverview: React.FC = () => {
             </View>
 
             <View style={styles.matchDetails}>
-              <Text style={styles.opponentName}>{match.opponent}</Text>
-              <Text style={styles.openingText}>
+              <Text style={styles.opponentName} numberOfLines={1}>
+                {match.opponent}
+              </Text>
+              <Text style={styles.openingText} numberOfLines={1}>
                 {match.opening} • {match.movesCount} moves
               </Text>
             </View>
@@ -46,65 +49,62 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     maxWidth: 540,
-    gap: 10,
+    gap: space.md,
   },
   headerTitle: {
-    color: '#94A3B8',
-    fontSize: 12,
+    color: colors.textMuted,
+    fontSize: type.small,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+    paddingHorizontal: space.xs,
   },
   list: {
-    gap: 8,
+    gap: space.sm + 2,
   },
   matchCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
-    padding: 12,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    paddingVertical: space.md,
+    paddingHorizontal: space.md + 2,
+    borderRadius: radius.md + 2,
     borderWidth: 1,
-    borderColor: '#334155',
-    gap: 12,
+    borderColor: colors.border,
+    gap: space.md,
   },
   resultTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    minWidth: 68,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs + 1,
+    borderRadius: radius.sm,
+    minWidth: 72,
     alignItems: 'center',
   },
-  winTag: {
-    backgroundColor: '#065F46',
-  },
-  drawTag: {
-    backgroundColor: '#92400E',
-  },
-  lossTag: {
-    backgroundColor: '#991B1B',
-  },
+  winTag: { backgroundColor: '#065F46' },
+  drawTag: { backgroundColor: '#92400E' },
+  lossTag: { backgroundColor: '#991B1B' },
   resultText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: type.micro,
     fontWeight: '800',
+    letterSpacing: 0.4,
   },
   matchDetails: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
   opponentName: {
-    color: '#F8FAFC',
-    fontSize: 14,
+    color: colors.text,
+    fontSize: type.body,
     fontWeight: '700',
   },
   openingText: {
-    color: '#94A3B8',
-    fontSize: 11,
+    color: colors.textMuted,
+    fontSize: type.caption,
   },
   dateText: {
-    color: '#64748B',
-    fontSize: 11,
+    color: colors.textDim,
+    fontSize: type.caption,
     fontWeight: '600',
   },
 });

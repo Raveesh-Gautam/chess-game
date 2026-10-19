@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useGameStore } from '../../store/gamestore';
+import { colors, space, radius, type, shadow } from '../chess/chess-theme';
 
 export const ProfileHeader: React.FC = () => {
   const { stats } = useGameStore();
@@ -10,7 +11,6 @@ export const ProfileHeader: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Profile Info */}
       <View style={styles.topRow}>
         <View style={styles.avatarContainer}>
           <Text style={styles.avatarText}>♔</Text>
@@ -18,7 +18,9 @@ export const ProfileHeader: React.FC = () => {
 
         <View style={styles.userTextCol}>
           <View style={styles.nameRow}>
-            <Text style={styles.userName}>Chess Master</Text>
+            <Text style={styles.userName} numberOfLines={1}>
+              Chess Master
+            </Text>
             <View style={styles.titleBadge}>
               <Text style={styles.titleBadgeText}>TACTICIAN</Text>
             </View>
@@ -32,26 +34,27 @@ export const ProfileHeader: React.FC = () => {
         </View>
       </View>
 
-      {/* Quick Stats Grid */}
+      <View style={styles.divider} />
+
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statVal}>{stats.rating}</Text>
-          <Text style={styles.statLabel}>Elo Rating</Text>
+          <Text style={styles.statLabel}>ELO RATING</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Text style={[styles.statVal, { color: '#10B981' }]}>{winRate}%</Text>
-          <Text style={styles.statLabel}>Win Rate</Text>
+          <Text style={[styles.statVal, { color: colors.primary }]}>{winRate}%</Text>
+          <Text style={styles.statLabel}>WIN RATE</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Text style={[styles.statVal, { color: '#38BDF8' }]}>{stats.wins}</Text>
-          <Text style={styles.statLabel}>Victories</Text>
+          <Text style={[styles.statVal, { color: colors.info }]}>{stats.wins}</Text>
+          <Text style={styles.statLabel}>VICTORIES</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Text style={[styles.statVal, { color: '#F59E0B' }]}>{stats.puzzlesSolved}</Text>
-          <Text style={styles.statLabel}>Puzzles</Text>
+          <Text style={[styles.statVal, { color: colors.warning }]}>{stats.puzzlesSolved}</Text>
+          <Text style={styles.statLabel}>PUZZLES</Text>
         </View>
       </View>
     </View>
@@ -62,106 +65,113 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     maxWidth: 540,
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: space.lg,
     borderWidth: 1,
-    borderColor: '#334155',
-    gap: 16,
+    borderColor: colors.border,
+    gap: space.lg,
+    ...shadow(4),
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space.md,
   },
   avatarContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#38BDF8',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.info,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#0284C7',
   },
   avatarText: {
-    fontSize: 28,
-    color: '#0F172A',
+    fontSize: 30,
+    color: colors.surfaceAlt,
+    includeFontPadding: false,
   },
   userTextCol: {
     flex: 1,
-    gap: 2,
+    gap: 4,
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: space.sm,
   },
   userName: {
-    color: '#F8FAFC',
-    fontSize: 18,
+    color: colors.text,
+    fontSize: type.title + 2,
     fontWeight: '800',
+    flexShrink: 1,
   },
   titleBadge: {
-    backgroundColor: '#7C3AED',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    backgroundColor: colors.purple,
+    paddingHorizontal: space.sm - 1,
+    paddingVertical: 3,
+    borderRadius: radius.sm - 2,
   },
   titleBadgeText: {
     color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   userSubtitle: {
-    color: '#94A3B8',
-    fontSize: 13,
+    color: colors.textMuted,
+    fontSize: type.small + 1,
     fontWeight: '600',
   },
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#7C2D12',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: space.md - 2,
+    paddingVertical: space.sm - 1,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: '#EA580C',
-    gap: 4,
+    gap: space.xs,
   },
   streakIcon: {
-    fontSize: 14,
+    fontSize: type.body,
   },
   streakCount: {
     color: '#FFEDD5',
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: type.body - 1,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
+    gap: space.sm,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#0F172A',
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    borderRadius: 10,
+    backgroundColor: colors.surfaceAlt,
+    paddingVertical: space.md,
+    paddingHorizontal: space.xs,
+    borderRadius: radius.md + 2,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: colors.borderSoft,
+    gap: 4,
   },
   statVal: {
-    color: '#F8FAFC',
-    fontSize: 16,
+    color: colors.text,
+    fontSize: type.title + 2,
     fontWeight: '800',
   },
   statLabel: {
-    color: '#64748B',
-    fontSize: 10,
+    color: colors.textDim,
+    fontSize: 9,
     fontWeight: '700',
-    marginTop: 2,
+    letterSpacing: 0.5,
   },
 });

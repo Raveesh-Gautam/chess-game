@@ -2,6 +2,33 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { useGameStore } from '../../store/gamestore';
 import { AIDifficulty, BoardTheme } from '../../types/chess';
+import { colors, space, radius, type, mono } from './chess-theme';
+
+type ActionBtnProps = {
+  icon: string;
+  label: string;
+  active?: boolean;
+  onPress: () => void;
+};
+
+const ActionBtn: React.FC<ActionBtnProps> = ({ icon, label, active, onPress }) => (
+  <Pressable onPress={onPress} style={styles.actionWrap}>
+    {({ pressed }) => (
+      <View
+        style={[
+          styles.actionBtn,
+          active && styles.actionBtnActive,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Text style={styles.actionIcon}>{icon}</Text>
+        <Text style={styles.actionLabel} numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+    )}
+  </Pressable>
+);
 
 export const GameControls: React.FC = () => {
   const {
@@ -38,39 +65,27 @@ export const GameControls: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Quick Action Buttons Row */}
+      {/* Quick actions */}
       <View style={styles.actionRow}>
-        <Pressable style={styles.actionBtn} onPress={reset}>
-          <Text style={styles.actionIcon}>🔄</Text>
-          <Text style={styles.actionLabel}>New Game</Text>
-        </Pressable>
-
-        <Pressable style={styles.actionBtn} onPress={undo}>
-          <Text style={styles.actionIcon}>↩️</Text>
-          <Text style={styles.actionLabel}>Undo</Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.actionBtn, mode === 'passAndPlay' && styles.actionBtnActive]}
+        <ActionBtn icon="🔄" label="New Game" onPress={reset} />
+        <ActionBtn icon="↩️" label="Undo" onPress={undo} />
+        <ActionBtn
+          icon="👥"
+          label="2 Players"
+          active={mode === 'passAndPlay'}
           onPress={() => setMode('passAndPlay')}
-        >
-          <Text style={styles.actionIcon}>👥</Text>
-          <Text style={styles.actionLabel}>2 Players</Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.actionBtn, mode === 'vsAI' && styles.actionBtnActive]}
+        />
+        <ActionBtn
+          icon="🤖"
+          label="vs Bot"
+          active={mode === 'vsAI'}
           onPress={() => setMode('vsAI', aiDifficulty)}
-        >
-          <Text style={styles.actionIcon}>🤖</Text>
-          <Text style={styles.actionLabel}>vs Bot</Text>
-        </Pressable>
+        />
       </View>
 
-      {/* Bot settings  */}
+      {/* Bot settings */}
       {mode === 'vsAI' && (
-        <>
-          {/* Difficulty */}
+        <View style={styles.card}>
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Bot Difficulty</Text>
             <View style={styles.optionsRow}>
@@ -96,7 +111,8 @@ export const GameControls: React.FC = () => {
             </View>
           </View>
 
-          {/* Play As */}
+          <View style={styles.divider} />
+
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Play As</Text>
             <View style={styles.optionsRow}>
@@ -121,41 +137,41 @@ export const GameControls: React.FC = () => {
               ))}
             </View>
           </View>
-        </>
+        </View>
       )}
 
-      {/* Board Theme Picker */}
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Board Style</Text>
-        <View style={styles.optionsRow}>
-          {themes.map((t) => (
-            <Pressable
-              key={t.id}
-              style={[
-                styles.themeChip,
-                boardTheme === t.id && styles.themeChipSelected,
-              ]}
-              onPress={() => setBoardTheme(t.id)}
-            >
-              <View style={[styles.themeDot, { backgroundColor: t.color }]} />
-              <Text
-                style={[
-                  styles.chipText,
-                  boardTheme === t.id && styles.chipTextSelected,
-                ]}
+      {/* Board theme */}
+      <View style={styles.card}>
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Board Style</Text>
+          <View style={styles.optionsRow}>
+            {themes.map((t) => (
+              <Pressable
+                key={t.id}
+                style={[styles.themeChip, boardTheme === t.id && styles.themeChipSelected]}
+                onPress={() => setBoardTheme(t.id)}
               >
-                {t.name}
-              </Text>
-            </Pressable>
-          ))}
+                <View style={[styles.themeDot, { backgroundColor: t.color }]} />
+                <Text
+                  style={[styles.chipText, boardTheme === t.id && styles.chipTextSelected]}
+                >
+                  {t.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
       </View>
 
-      {/* Move Notation Stream */}
+      {/* Move history */}
       {historySAN.length > 0 && (
-        <View style={styles.notationContainer}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Move History</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScroll}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.historyContent}
+          >
             {historySAN.map((move, index) => {
               if (index % 2 === 0) {
                 const moveNum = Math.floor(index / 2) + 1;
@@ -181,124 +197,133 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     maxWidth: 540,
-    gap: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    gap: space.md,
+    paddingVertical: space.sm,
+  },
+  pressed: {
+    opacity: 0.75,
   },
   actionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
+    gap: space.sm,
+  },
+  actionWrap: {
+    flex: 1,
   },
   actionBtn: {
-    flex: 1,
-    backgroundColor: '#1E293B',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 10,
+    backgroundColor: colors.surface,
+    paddingVertical: space.md,
+    paddingHorizontal: space.xs,
+    borderRadius: radius.md + 2,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.border,
+    gap: 4,
   },
   actionBtnActive: {
-    borderColor: '#10B981',
-    backgroundColor: '#064E3B',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryBg,
   },
   actionIcon: {
-    fontSize: 18,
-    marginBottom: 2,
+    fontSize: 20,
   },
   actionLabel: {
-    color: '#F8FAFC',
-    fontSize: 11,
+    color: colors.text,
+    fontSize: type.caption,
     fontWeight: '700',
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: space.lg - 2,
+    gap: space.md,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
   },
   sectionContainer: {
-    gap: 6,
+    gap: space.sm + 2,
   },
   sectionTitle: {
-    color: '#94A3B8',
-    fontSize: 12,
+    color: colors.textMuted,
+    fontSize: type.small,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   optionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: space.sm,
   },
   optionChip: {
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: space.md + 2,
+    paddingVertical: space.sm,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.border,
   },
   optionChipSelected: {
-    backgroundColor: '#10B981',
-    borderColor: '#059669',
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   themeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    gap: space.sm - 2,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: space.md + 2,
+    paddingVertical: space.sm,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.border,
   },
   themeChipSelected: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#0F172A',
+    borderColor: colors.info,
+    backgroundColor: colors.bg,
   },
   themeDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   chipText: {
-    color: '#CBD5E1',
-    fontSize: 12,
+    color: colors.textSoft,
+    fontSize: type.small,
     fontWeight: '600',
   },
   chipTextSelected: {
     color: '#FFFFFF',
     fontWeight: '800',
   },
-  notationContainer: {
-    backgroundColor: '#1E293B',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-    gap: 6,
-  },
-  historyScroll: {
-    flexDirection: 'row',
+  historyContent: {
+    paddingVertical: 2,
+    paddingRight: space.sm,
   },
   notationPair: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginRight: 8,
-    gap: 6,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm - 2,
+    borderRadius: radius.sm + 2,
+    marginRight: space.sm,
+    gap: space.sm - 2,
   },
   moveNum: {
-    color: '#64748B',
-    fontSize: 12,
+    color: colors.textDim,
+    fontSize: type.small,
     fontWeight: '700',
   },
   moveText: {
-    color: '#F8FAFC',
-    fontSize: 13,
+    color: colors.text,
+    fontSize: type.body - 1,
     fontWeight: '700',
-    fontFamily: 'monospace',
+    fontFamily: mono,
   },
 });

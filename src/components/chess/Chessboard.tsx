@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo } from 'react';
-
 import {
   View,
   Text,
@@ -7,39 +6,22 @@ import {
   StyleSheet,
   Modal,
   useWindowDimensions,
-  Platform,
 } from 'react-native';
 import { Chess, Square, PieceSymbol, Color } from 'chess.js';
 import { useGameStore } from '../../store/gamestore';
 import { ChessPiece } from './Chesspiece';
 import { BoardTheme } from '../../types/chess';
-import { colors, space, radius, type } from './chess-theme';
+import { colors, space, radius, type, mono, shadow } from './chess-theme';
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
+const BORDER = 4;
 
-// Color schemes for board themes
 const THEME_COLORS: Record<BoardTheme, { light: string; dark: string; border: string }> = {
-  emerald: {
-    light: '#EEEED2',
-    dark: '#769656',
-    border: '#476331',
-  },
-  wood: {
-    light: '#F0D9B5',
-    dark: '#B58863',
-    border: '#8B5A2B',
-  },
-  cyber: {
-    light: '#2E3856',
-    dark: '#1A2238',
-    border: '#6366F1',
-  },
-  slate: {
-    light: '#E2E8F0',
-    dark: '#475569',
-    border: '#1E293B',
-  },
+  emerald: { light: '#EEEED2', dark: '#769656', border: '#476331' },
+  wood: { light: '#F0D9B5', dark: '#B58863', border: '#8B5A2B' },
+  cyber: { light: '#2E3856', dark: '#1A2238', border: '#6366F1' },
+  slate: { light: '#E2E8F0', dark: '#475569', border: '#1E293B' },
 };
 
 function formatTime(seconds: number): string {
@@ -49,29 +31,23 @@ function formatTime(seconds: number): string {
 }
 
 type Outcome = {
-  winner: 'w' | 'b' | null; // null = draw / unknown
+  winner: 'w' | 'b' | null;
   title: string;
   subtitle: string;
 };
 
-// Works out who won (or if it was a draw) from the board position and clocks.
-// Note: threefold repetition can't be detected from a FEN alone (no move history),
-// so it falls through to the store's `gameResult` text.
 function getOutcome(
   view: Chess,
   whiteTime: number,
   blackTime: number,
   fallback: string | null | undefined
 ): Outcome {
-  // Timeout
   if (whiteTime <= 0) {
     return { winner: 'b', title: 'Black Wins! 🏆', subtitle: 'White ran out of time' };
   }
   if (blackTime <= 0) {
     return { winner: 'w', title: 'White Wins! 🏆', subtitle: 'Black ran out of time' };
   }
-
-  // Checkmate: the side to move is the loser
   if (view.isCheckmate()) {
     const winner = view.turn() === 'w' ? 'b' : 'w';
     return {
@@ -80,18 +56,15 @@ function getOutcome(
       subtitle: 'Checkmate',
     };
   }
-
-  // Draws
   if (view.isStalemate()) return { winner: null, title: 'Draw 🤝', subtitle: 'Stalemate' };
   if (view.isInsufficientMaterial())
     return { winner: null, title: 'Draw 🤝', subtitle: 'Insufficient material' };
   if (view.isDraw()) return { winner: null, title: 'Draw 🤝', subtitle: '50-move rule' };
 
-  // Resignation, repetition, etc. (text coming from the store)
   return { winner: null, title: 'Game Over', subtitle: fallback || 'Match Ended' };
 }
 
-// ---------- Player bar (orientation-aware) ----------
+// ---------- Player bar ----------
 type BarProps = {
   color: Color;
   width: number;
@@ -113,17 +86,19 @@ const PlayerBar: React.FC<BarProps> = ({
   captured,
   showTimer,
 }) => (
-  <View style={[styles.playerHeader, { width }]}>
+  <View style={[styles.playerHeader, { width }, active && styles.playerHeaderActive]}>
     <View style={styles.playerInfo}>
       <View
         style={[
           styles.colorIndicator,
           color === 'w'
             ? { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#CCC' }
-            : { backgroundColor: '#1A1D20' },
+            : { backgroundColor: '#1A1D20', borderWidth: 1, borderColor: colors.border },
         ]}
       />
-      <Text style={styles.playerName}>{name}</Text>
+      <Text style={styles.playerName} numberOfLines={1}>
+        {name}
+      </Text>
       {diff > 0 && (
         <View style={styles.diffBadge}>
           <Text style={styles.diffText}>+{diff}</Text>
@@ -131,16 +106,19 @@ const PlayerBar: React.FC<BarProps> = ({
       )}
     </View>
 
-    {/* Pieces captured by this player */}
     <View style={styles.capturedRow}>
       {captured.map((p, i) => (
-        <ChessPiece key={`cap-${color}-${i}`} type={p} color={color === 'w' ? 'b' : 'w'} size={18} />
+        <View key={`cap-${color}-${i}`} style={i > 0 ? styles.capturedOverlap : undefined}>
+          <ChessPiece type={p} color={color === 'w' ? 'b' : 'w'} size={18} />
+        </View>
       ))}
     </View>
 
     {showTimer && (
       <View style={[styles.timerBadge, active && styles.timerActive]}>
-        <Text style={styles.timerText}>{formatTime(time)}</Text>
+        <Text style={[styles.timerText, active && styles.timerTextActive]}>
+          {formatTime(time)}
+        </Text>
       </View>
     )}
   </View>
@@ -174,12 +152,12 @@ export const ChessBoard: React.FC = () => {
     aiDifficulty,
   } = useGameStore();
 
-  // Calculate board size based on viewport width
-  const maxBoardWidth = Math.min(width - 32, 540);
+  // Board size (outer wrapper = squares + border on both sides)
+  const maxBoardWidth = Math.min(width - space.lg * 2 - BORDER * 2, 540);
   const squareSize = Math.floor(maxBoardWidth / 8);
   const boardSize = squareSize * 8;
+  const outerSize = boardSize + BORDER * 2;
 
-  // Clock interval (puzzle mein clock nahi chalti)
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
     if (isTimerRunning && !isGameOver && mode !== 'puzzle') {
@@ -192,14 +170,12 @@ export const ChessBoard: React.FC = () => {
     };
   }, [isTimerRunning, isGameOver, mode, tickTimer]);
 
-  const colors = THEME_COLORS[boardTheme] || THEME_COLORS.emerald;
+  const palette = THEME_COLORS[boardTheme] || THEME_COLORS.emerald;
 
-  // Built from the FEN: it changes on every move, so the UI always updates
   const view = useMemo(() => new Chess(fen), [fen]);
   const board = view.board();
   const currentTurn = view.turn();
 
-  // Game outcome (winner / draw)
   const outcome = useMemo(
     () => (isGameOver ? getOutcome(view, whiteTime, blackTime, gameResult) : null),
     [isGameOver, view, whiteTime, blackTime, gameResult]
@@ -207,7 +183,6 @@ export const ChessBoard: React.FC = () => {
   const youWon = !!outcome?.winner && outcome.winner === playerColor;
   const youLost = !!outcome?.winner && outcome.winner !== playerColor;
 
-  // Find King square if in check
   let inCheckSquare: Square | null = null;
   if (view.inCheck()) {
     for (let r = 0; r < 8; r++) {
@@ -223,14 +198,13 @@ export const ChessBoard: React.FC = () => {
   const ranksToDisplay = playerColor === 'b' ? [...RANKS].reverse() : RANKS;
   const filesToDisplay = playerColor === 'b' ? [...FILES].reverse() : FILES;
 
-  // Player bars: neeche hamesha playerColor, upar opponent
   const bottomColor: Color = playerColor;
   const topColor: Color = playerColor === 'w' ? 'b' : 'w';
   const showTimer = mode !== 'puzzle';
 
   const barProps = (c: Color): BarProps => ({
     color: c,
-    width: boardSize,
+    width: outerSize,
     name:
       mode === 'vsAI'
         ? c === playerColor
@@ -252,12 +226,15 @@ export const ChessBoard: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Top Player Status Bar */}
       <PlayerBar {...barProps(topColor)} />
 
-      {/* Main Board Container */}
-      <View style={[styles.boardWrapper, { width: boardSize, height: boardSize, borderColor: colors.border }]}>
-        {/* Layer 1: Squares (background, labels, dots) */}
+      <View
+        style={[
+          styles.boardWrapper,
+          { width: outerSize, height: outerSize, borderColor: palette.border },
+        ]}
+      >
+        {/* Layer 1: Squares */}
         {ranksToDisplay.map((rankStr, rIdx) => {
           const r = RANKS.indexOf(rankStr);
           return (
@@ -273,15 +250,14 @@ export const ChessBoard: React.FC = () => {
                 const isLastMoveTo = lastMove?.to === sqName;
                 const isInCheck = inCheckSquare === sqName;
 
-                // Move target check
                 const legalMove = legalMoves.find((m) => m.to === sqName);
                 const isLegalMove = !!legalMove;
                 const isCapture = isLegalMove && (piece !== null || legalMove.flags.includes('e'));
 
-                let backgroundColor = isDark ? colors.dark : colors.light;
+                let backgroundColor = isDark ? palette.dark : palette.light;
 
                 if (isSelected) {
-                  backgroundColor = '#F59E0B'; 
+                  backgroundColor = '#F59E0B';
                 } else if (isLastMoveFrom || isLastMoveTo) {
                   backgroundColor = isDark ? '#B4902F' : '#E9D68A';
                 }
@@ -292,49 +268,52 @@ export const ChessBoard: React.FC = () => {
                     onPress={() => onSquarePress(sqName)}
                     style={[
                       styles.square,
-                      {
-                        width: squareSize,
-                        height: squareSize,
-                        backgroundColor,
-                      },
+                      { width: squareSize, height: squareSize, backgroundColor },
                       isInCheck && styles.checkSquare,
                     ]}
                   >
-                    {/* Rank file labels */}
                     {cIdx === 0 && (
-                      <Text style={[styles.rankLabel, { color: isDark ? colors.light : colors.dark }]}>
+                      <Text
+                        style={[
+                          styles.rankLabel,
+                          { color: isDark ? palette.light : palette.dark },
+                        ]}
+                      >
                         {rankStr}
                       </Text>
                     )}
                     {rIdx === 7 && (
-                      <Text style={[styles.fileLabel, { color: isDark ? colors.light : colors.dark }]}>
+                      <Text
+                        style={[
+                          styles.fileLabel,
+                          { color: isDark ? palette.light : palette.dark },
+                        ]}
+                      >
                         {fileStr}
                       </Text>
                     )}
 
-                    {/* Move indicator */}
                     {isLegalMove && !isCapture && (
                       <View
                         style={[
                           styles.legalDot,
                           {
-                            width: squareSize * 0.32,
-                            height: squareSize * 0.32,
-                            borderRadius: (squareSize * 0.32) / 2,
+                            width: squareSize * 0.3,
+                            height: squareSize * 0.3,
+                            borderRadius: (squareSize * 0.3) / 2,
                           },
                         ]}
                       />
                     )}
 
-                    {/* Capture indicator */}
                     {isCapture && (
                       <View
                         style={[
                           styles.captureRing,
                           {
-                            width: squareSize * 0.88,
-                            height: squareSize * 0.88,
-                            borderRadius: (squareSize * 0.88) / 2,
+                            width: squareSize * 0.9,
+                            height: squareSize * 0.9,
+                            borderRadius: (squareSize * 0.9) / 2,
                           },
                         ]}
                       />
@@ -346,7 +325,7 @@ export const ChessBoard: React.FC = () => {
           );
         })}
 
-        {/* Layer 2: Pieces (separate layer, lets touches pass through) */}
+        {/* Layer 2: Pieces */}
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           {ranksToDisplay.map((rankStr, rIdx) =>
             filesToDisplay.map((fileStr, cIdx) => {
@@ -377,7 +356,7 @@ export const ChessBoard: React.FC = () => {
           )}
         </View>
 
-        {/* Game Over Banner Overlay */}
+        {/* Game over overlay */}
         {isGameOver && outcome && (
           <View style={styles.gameOverOverlay}>
             <View
@@ -400,7 +379,6 @@ export const ChessBoard: React.FC = () => {
                 <Pressable style={styles.actionBtnPrimary} onPress={reset}>
                   <Text style={styles.actionBtnTextPrimary}>New Match</Text>
                 </Pressable>
-                {/* Undo makes no sense after a timeout, so only show it when both clocks have time */}
                 {whiteTime > 0 && blackTime > 0 && (
                   <Pressable style={styles.actionBtnSecondary} onPress={undo}>
                     <Text style={styles.actionBtnTextSecondary}>Undo Move</Text>
@@ -412,10 +390,9 @@ export const ChessBoard: React.FC = () => {
         )}
       </View>
 
-      {/* Bottom Player Status Bar */}
       <PlayerBar {...barProps(bottomColor)} />
 
-      {/* Pawn Promotion Modal */}
+      {/* Promotion modal */}
       <Modal visible={!!pendingPromotion} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.promotionCard}>
@@ -424,7 +401,7 @@ export const ChessBoard: React.FC = () => {
               {(['q', 'r', 'b', 'n'] as PieceSymbol[]).map((piece) => (
                 <Pressable
                   key={piece}
-                  style={styles.promotionBtn}
+                  style={({ pressed }) => [styles.promotionBtn, pressed && styles.pressed]}
                   onPress={() => confirmPromotion(piece as any)}
                 >
                   <ChessPiece type={piece} color={currentTurn} size={44} />
@@ -445,19 +422,30 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 12,
+    paddingVertical: space.sm,
+    gap: space.sm,
   },
   playerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    minHeight: 48,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: space.sm,
+  },
+  playerHeaderActive: {
+    borderColor: colors.primary,
   },
   playerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: space.sm,
+    maxWidth: '45%',
   },
   colorIndicator: {
     width: 14,
@@ -465,55 +453,60 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   playerName: {
-    color: '#F8FAFC',
+    color: colors.text,
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: type.body,
+    flexShrink: 1,
   },
   diffBadge: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 6,
+    backgroundColor: colors.border,
+    paddingHorizontal: space.sm - 2,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: radius.sm - 2,
   },
   diffText: {
-    color: '#10B981',
+    color: colors.primary,
     fontWeight: '800',
-    fontSize: 12,
+    fontSize: type.small,
   },
   capturedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
     flex: 1,
-    paddingHorizontal: 8,
+    overflow: 'hidden',
+    paddingHorizontal: space.xs,
+  },
+  capturedOverlap: {
+    marginLeft: -6,
   },
   timerBadge: {
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    minWidth: 64,
+    alignItems: 'center',
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: space.md - 2,
+    paddingVertical: space.xs + 1,
+    borderRadius: radius.sm + 2,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.border,
   },
   timerActive: {
-    borderColor: '#10B981',
-    backgroundColor: '#064E3B',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryBg,
   },
   timerText: {
-    color: '#F8FAFC',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: colors.textMuted,
+    fontFamily: mono,
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: type.title,
+  },
+  timerTextActive: {
+    color: colors.text,
   },
   boardWrapper: {
-    borderWidth: 4,
-    borderRadius: 8,
+    borderWidth: BORDER,
+    borderRadius: radius.md - 2,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
+    ...shadow(8),
   },
   row: {
     flexDirection: 'row',
@@ -524,20 +517,20 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   checkSquare: {
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.danger,
   },
   rankLabel: {
     position: 'absolute',
     top: 2,
-    left: 4,
-    fontSize: 10,
+    left: 3,
+    fontSize: type.micro,
     fontWeight: '700',
   },
   fileLabel: {
     position: 'absolute',
-    bottom: 2,
-    right: 4,
-    fontSize: 10,
+    bottom: 1,
+    right: 3,
+    fontSize: type.micro,
     fontWeight: '700',
   },
   legalDot: {
@@ -551,104 +544,118 @@ const styles = StyleSheet.create({
   },
   gameOverOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: space.lg,
     zIndex: 100,
   },
   gameOverCard: {
-    backgroundColor: '#1E293B',
-    padding: 24,
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    paddingVertical: space.xl,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.xl,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
-    width: '80%',
+    borderColor: colors.border,
+    width: '88%',
+    maxWidth: 320,
+    ...shadow(6),
   },
   winCard: {
-    borderColor: '#10B981',
+    borderColor: colors.primary,
     borderWidth: 2,
   },
   loseCard: {
-    borderColor: '#EF4444',
+    borderColor: colors.danger,
     borderWidth: 2,
   },
   gameOverTitle: {
-    fontSize: 22,
+    fontSize: type.h2 + 2,
     fontWeight: '800',
-    color: '#F8FAFC',
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: space.sm,
+    textAlign: 'center',
   },
   gameOverResult: {
-    fontSize: 15,
-    color: '#94A3B8',
-    marginBottom: 20,
+    fontSize: type.body + 1,
+    color: colors.textMuted,
+    marginBottom: space.lg + 4,
     textAlign: 'center',
   },
   gameOverButtons: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: space.md,
   },
   actionBtnPrimary: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: space.lg + 2,
+    paddingVertical: space.md - 1,
+    borderRadius: radius.md,
   },
   actionBtnTextPrimary: {
     color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
+    fontWeight: '800',
+    fontSize: type.body,
   },
   actionBtnSecondary: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: colors.border,
+    paddingHorizontal: space.lg + 2,
+    paddingVertical: space.md - 1,
+    borderRadius: radius.md,
   },
   actionBtnTextSecondary: {
-    color: '#F8FAFC',
-    fontWeight: '600',
-    fontSize: 14,
+    color: colors.text,
+    fontWeight: '700',
+    fontSize: type.body,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: space.lg,
   },
   promotionCard: {
-    backgroundColor: '#1E293B',
-    padding: 20,
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    paddingVertical: space.xl - 4,
+    paddingHorizontal: space.xl - 4,
+    borderRadius: radius.xl,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#475569',
+    borderColor: colors.border,
+    ...shadow(10),
   },
   promotionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F8FAFC',
-    marginBottom: 16,
+    fontSize: type.title + 2,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: space.lg,
   },
   promotionOptions: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: space.md,
+    marginBottom: space.md,
   },
   promotionBtn: {
-    backgroundColor: '#334155',
-    padding: 12,
-    borderRadius: 12,
+    backgroundColor: colors.border,
+    padding: space.md,
+    borderRadius: radius.lg - 2,
     borderWidth: 1,
-    borderColor: '#64748B',
+    borderColor: colors.textDim,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   cancelBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.xl - 8,
   },
   cancelText: {
-    color: '#94A3B8',
-    fontSize: 14,
+    color: colors.textMuted,
+    fontSize: type.body,
+    fontWeight: '600',
   },
 });

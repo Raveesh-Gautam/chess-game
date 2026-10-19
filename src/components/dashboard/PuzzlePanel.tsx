@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useGameStore } from '../../store/gamestore';
+import { colors, space, radius, type, shadow } from '../chess/chess-theme';
 
 export const PuzzlePanel: React.FC = () => {
   const { currentPuzzle, puzzleSolved, puzzleError, nextPuzzle, reset } = useGameStore();
@@ -16,7 +17,9 @@ export const PuzzlePanel: React.FC = () => {
       ]}
     >
       <View style={styles.row}>
-        <Text style={styles.title}>🧩 {currentPuzzle.title}</Text>
+        <Text style={styles.title} numberOfLines={1}>
+          🧩 {currentPuzzle.title}
+        </Text>
         <View style={styles.ratingBadge}>
           <Text style={styles.ratingText}>{currentPuzzle.rating}</Text>
         </View>
@@ -24,14 +27,28 @@ export const PuzzlePanel: React.FC = () => {
 
       <Text style={styles.desc}>{currentPuzzle.description}</Text>
 
-      {puzzleSolved && <Text style={styles.msgGood}>✅ Correct! Puzzle solved.</Text>}
-      {puzzleError && <Text style={styles.msgBad}>❌ Wrong move, try again...</Text>}
+      {puzzleSolved && (
+        <View style={[styles.msgBox, styles.msgBoxGood]}>
+          <Text style={styles.msgGood}>✅ Correct! Puzzle solved.</Text>
+        </View>
+      )}
+      {puzzleError && (
+        <View style={[styles.msgBox, styles.msgBoxBad]}>
+          <Text style={styles.msgBad}>❌ Wrong move, try again...</Text>
+        </View>
+      )}
 
       <View style={styles.btnRow}>
-        <Pressable style={styles.btnSecondary} onPress={reset}>
+        <Pressable
+          style={({ pressed }) => [styles.btnSecondary, pressed && styles.pressed]}
+          onPress={reset}
+        >
           <Text style={styles.btnTextSecondary}>Retry</Text>
         </Pressable>
-        <Pressable style={styles.btnPrimary} onPress={nextPuzzle}>
+        <Pressable
+          style={({ pressed }) => [styles.btnPrimary, pressed && styles.pressed]}
+          onPress={nextPuzzle}
+        >
           <Text style={styles.btnTextPrimary}>Next Puzzle ➜</Text>
         </Pressable>
       </View>
@@ -42,25 +59,74 @@ export const PuzzlePanel: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
+    maxWidth: 540,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg + 2,
     borderWidth: 1,
-    borderColor: '#334155',
-    padding: 14,
-    gap: 8,
+    borderColor: colors.border,
+    padding: space.lg,
+    gap: space.md,
+    ...shadow(3),
   },
-  solved: { borderColor: '#10B981', backgroundColor: '#064E3B' },
-  error: { borderColor: '#EF4444', backgroundColor: '#450A0A' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { color: '#F8FAFC', fontSize: 16, fontWeight: '800' },
-  ratingBadge: { backgroundColor: '#334155', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  ratingText: { color: '#F59E0B', fontSize: 12, fontWeight: '800' },
-  desc: { color: '#94A3B8', fontSize: 13 },
-  msgGood: { color: '#34D399', fontWeight: '800', fontSize: 14 },
-  msgBad: { color: '#FCA5A5', fontWeight: '800', fontSize: 14 },
-  btnRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  btnPrimary: { flex: 1, backgroundColor: '#10B981', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  btnTextPrimary: { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
-  btnSecondary: { flex: 1, backgroundColor: '#334155', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  btnTextSecondary: { color: '#F8FAFC', fontWeight: '700', fontSize: 13 },
+  solved: { borderColor: colors.primary, backgroundColor: colors.primaryBg },
+  error: { borderColor: colors.danger, backgroundColor: colors.dangerBg },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  title: {
+    flex: 1,
+    color: colors.text,
+    fontSize: type.title + 1,
+    fontWeight: '800',
+  },
+  ratingBadge: {
+    backgroundColor: colors.border,
+    paddingHorizontal: space.sm + 2,
+    paddingVertical: space.xs,
+    borderRadius: radius.sm,
+  },
+  ratingText: {
+    color: colors.warning,
+    fontSize: type.small,
+    fontWeight: '800',
+  },
+  desc: {
+    color: colors.textMuted,
+    fontSize: type.body - 1,
+    lineHeight: 20,
+  },
+  msgBox: {
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    borderRadius: radius.md,
+  },
+  msgBoxGood: { backgroundColor: 'rgba(16, 185, 129, 0.15)' },
+  msgBoxBad: { backgroundColor: 'rgba(239, 68, 68, 0.15)' },
+  msgGood: { color: '#34D399', fontWeight: '800', fontSize: type.body },
+  msgBad: { color: '#FCA5A5', fontWeight: '800', fontSize: type.body },
+  btnRow: {
+    flexDirection: 'row',
+    gap: space.md,
+    marginTop: space.xs,
+  },
+  pressed: { opacity: 0.8 },
+  btnPrimary: {
+    flex: 1.4,
+    backgroundColor: colors.primary,
+    paddingVertical: space.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  btnTextPrimary: { color: '#FFFFFF', fontWeight: '800', fontSize: type.body - 1 },
+  btnSecondary: {
+    flex: 1,
+    backgroundColor: colors.border,
+    paddingVertical: space.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  btnTextSecondary: { color: colors.text, fontWeight: '700', fontSize: type.body - 1 },
 });
